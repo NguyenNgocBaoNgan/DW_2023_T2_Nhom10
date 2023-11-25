@@ -52,9 +52,9 @@ public class Crawler {
                     if (resultSet.isBeforeFirst()) {
                         while (resultSet.next()) {
                             FILE_LOCATION = resultSet.getString("download_path");
-                            String id = resultSet.getString("id");
+                            String idConfig = resultSet.getString("id").trim();
                             if (Files.exists(Paths.get(FILE_LOCATION)) && Files.isDirectory(Paths.get(FILE_LOCATION))) {
-                                new ControlConnector().updateStatusConfig(connection, id, "CRAWLING");
+                                new ControlConnector().updateStatusConfig(connection, idConfig, "CRAWLING");
 
                                 String sqlGetLinks = "SELECT * FROM data_link where flag = 'TRUE' ";
                                 try (PreparedStatement preparedStatement1 = connection.prepareStatement(sqlGetLinks)) {
@@ -65,20 +65,40 @@ public class Crawler {
                                             if (content != null) {
                                                 exportData(content);
                                             } else {
+                                                //Link error
                                                 String idLink = links.getString("id");
                                                 new ControlConnector().updateFlagDataLinks(connection, idLink, "ERR");
                                                 System.out.println("CRAWL FAILED");
 
+                                                new ControlConnector().writeLog(connection,
+                                                        "CRAWL",
+                                                        "Get data from web",
+                                                        idConfig,
+                                                        "ERR",
+                                                        "Error with link at id is" + idLink);
                                                 //TODO
-                                                //Còn 1 bước gửi mail và log
+                                                //Còn 1 bước gửi mail
                                             }
                                         }
-                                        new ControlConnector().updateStatusConfig(connection, id, "CRAWLED");
-
+                                        //Success
+                                        new ControlConnector().updateStatusConfig(connection, idConfig, "CRAWLED");
+                                        new ControlConnector().writeLog(connection,
+                                                "CRAWL",
+                                                "Get data from web",
+                                                idConfig,
+                                                "SUCCESS",
+                                                "");
                                     }
                                 }
                             } else {
-                                new ControlConnector().updateFlagConfig(connection, id, "ERR");
+                                // can't find the download path
+                                new ControlConnector().updateFlagConfig(connection, idConfig, "ERR");
+                                new ControlConnector().writeLog(connection,
+                                        "CRAWL",
+                                        "Get data from web",
+                                        idConfig,
+                                        "ERR",
+                                        "Download path does not exist or failed to access path");
                                 //TODO
                                 //Còn 1 bước gửi mail và log
                             }
