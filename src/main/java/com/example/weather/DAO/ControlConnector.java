@@ -104,6 +104,26 @@ public class ControlConnector {
         } catch (SQLException e) {
             e.printStackTrace();
         }
+    }
 
+    public void writeLog(Connection conn, String activityType, String description, String configId, String status, String errorDetail) throws SQLException {
+        String insertQuery = "INSERT INTO logs (activity_type, description, config_id, status, error_detail) VALUES (?, ?, ?, ?, ?)";
+
+        try (PreparedStatement preparedStatement = conn.prepareStatement(insertQuery)) {
+            preparedStatement.setString(1, activityType);
+            preparedStatement.setString(2, description);
+            preparedStatement.setString(3, configId);
+            preparedStatement.setString(4, status);
+            preparedStatement.setString(5, errorDetail);
+
+            int rowsInserted = preparedStatement.executeUpdate();
+            if (rowsInserted > 0) {
+                System.out.println("Inserted log " + activityType + "" + status + " successfully");
+            } else {
+                System.out.println("Failed to insert log");
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
     }
 }
