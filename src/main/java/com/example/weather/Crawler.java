@@ -1,6 +1,6 @@
 package com.example.weather;
 
-import com.example.weather.DAO.ControlConnector;
+import com.example.weather.DAO.Connector;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
@@ -27,7 +27,7 @@ public class Crawler {
 
     {
         try {
-            prop.load(ControlConnector.class.getClassLoader().getResourceAsStream("data.properties"));
+            prop.load(Connector.class.getClassLoader().getResourceAsStream("data.properties"));
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -45,7 +45,7 @@ public class Crawler {
 
 
     public void startCrawl() throws IOException, ParseException {
-        try (Connection connection = new ControlConnector().getConnection()) {
+        try (Connection connection = new Connector().getControlConnection()) {
             String sqlGetDownloadPath = "SELECT * FROM configuration WHERE  flag = 'TRUE'  AND STATUS = 'PREPARED'";
             try (PreparedStatement preparedStatement = connection.prepareStatement(sqlGetDownloadPath)) {
                 try (ResultSet resultSet = preparedStatement.executeQuery()) {
@@ -54,7 +54,7 @@ public class Crawler {
                             FILE_LOCATION = resultSet.getString("download_path");
                             String idConfig = resultSet.getString("id").trim();
                             if (Files.exists(Paths.get(FILE_LOCATION)) && Files.isDirectory(Paths.get(FILE_LOCATION))) {
-                                new ControlConnector().updateStatusConfig(connection, idConfig, "CRAWLING");
+                                new Connector().updateStatusConfig(connection, idConfig, "CRAWLING");
 
                                 String sqlGetLinks = "SELECT * FROM data_link where flag = 'TRUE' ";
                                 try (PreparedStatement preparedStatement1 = connection.prepareStatement(sqlGetLinks)) {
@@ -67,10 +67,10 @@ public class Crawler {
                                             } else {
                                                 //Link error
                                                 String idLink = links.getString("id");
-                                                new ControlConnector().updateFlagDataLinks(connection, idLink, "ERR");
+                                                new Connector().updateFlagDataLinks(connection, idLink, "ERR");
                                                 System.out.println("CRAWL FAILED");
 
-                                                new ControlConnector().writeLog(connection,
+                                                new Connector().writeLog(connection,
                                                         "CRAWL",
                                                         "Get data from web",
                                                         idConfig,
@@ -81,8 +81,8 @@ public class Crawler {
                                             }
                                         }
                                         //Success
-                                        new ControlConnector().updateStatusConfig(connection, idConfig, "CRAWLED");
-                                        new ControlConnector().writeLog(connection,
+                                        new Connector().updateStatusConfig(connection, idConfig, "CRAWLED");
+                                        new Connector().writeLog(connection,
                                                 "CRAWL",
                                                 "Get data from web",
                                                 idConfig,
@@ -92,8 +92,8 @@ public class Crawler {
                                 }
                             } else {
                                 // can't find the download path
-                                new ControlConnector().updateFlagConfig(connection, idConfig, "ERR");
-                                new ControlConnector().writeLog(connection,
+                                new Connector().updateFlagConfig(connection, idConfig, "ERR");
+                                new Connector().writeLog(connection,
                                         "CRAWL",
                                         "Get data from web",
                                         idConfig,
@@ -124,9 +124,7 @@ public class Crawler {
         if (!file.exists()) createFile(file_path);
 
         try (Writer writer = new OutputStreamWriter(new FileOutputStream(file_path, true), StandardCharsets.UTF_8)) {
-
             writer.write(content + "\n");
-
             System.out.println("CRAWL SUCCESSED");
         } catch (Exception e) {
             e.printStackTrace();
