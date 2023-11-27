@@ -7,12 +7,12 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.Properties;
 
-public class ControlConnector {
+public class Connector {
     static Properties prop = new Properties();
 
     static {
         try {
-            prop.load(ControlConnector.class.getClassLoader().getResourceAsStream("data.properties"));
+            prop.load(Connector.class.getClassLoader().getResourceAsStream("data.properties"));
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -25,7 +25,7 @@ public class ControlConnector {
 
     private String connectionURL = "jdbc:mysql://" + hostName + "/" + dbName;
 
-    public Connection getConnection() throws SQLException {
+    public Connection getControlConnection() throws SQLException {
         //Tạo đối tượng Connection
         Connection conn = null;
         try {
@@ -37,8 +37,20 @@ public class ControlConnector {
         return conn;
     }
 
+    public Connection getWHConnection(String hostName, String dbName, String username, String password) throws SQLException {
+        //Tạo đối tượng Connection
+        Connection conn = null;
+        try {
+            conn = DriverManager.getConnection("jdbc:mysql://" + hostName + "/" + dbName, username, password);
+            System.out.println("Kết nối staging db thành công");
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return conn;
+    }
+
     public static void main(String[] args) throws SQLException {
-        new ControlConnector().getConnection();
+        new Connector().getControlConnection();
     }
 
     public void updateFlagDataLinks(Connection conn, String id, String flag) throws SQLException {
