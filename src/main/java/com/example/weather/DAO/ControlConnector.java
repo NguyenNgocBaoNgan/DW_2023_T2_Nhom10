@@ -30,7 +30,7 @@ public class ControlConnector {
         Connection conn = null;
         try {
             conn = DriverManager.getConnection(connectionURL, username, password);
-            System.out.println("Kết nối thành công");
+            System.out.println("Kết nối control db thành công");
         } catch (SQLException e) {
             e.printStackTrace();
         }
