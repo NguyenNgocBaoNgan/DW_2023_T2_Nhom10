@@ -124,9 +124,7 @@ public class Crawler {
         if (!file.exists()) createFile(file_path);
 
         try (Writer writer = new OutputStreamWriter(new FileOutputStream(file_path, true), StandardCharsets.UTF_8)) {
-
             writer.write(content + "\n");
-
             System.out.println("CRAWL SUCCESSED");
         } catch (Exception e) {
             e.printStackTrace();
