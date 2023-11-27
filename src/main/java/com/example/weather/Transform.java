@@ -1,7 +1,6 @@
 package com.example.weather;
 
-import com.example.weather.DAO.ControlConnector;
-import com.example.weather.DAO.WHConnector;
+import com.example.weather.DAO.Connector;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -14,7 +13,7 @@ public class Transform {
 
     {
         try {
-            prop.load(ControlConnector.class.getClassLoader().getResourceAsStream("data.properties"));
+            prop.load(Connector.class.getClassLoader().getResourceAsStream("data.properties"));
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -23,7 +22,8 @@ public class Transform {
     String FILE_LOCATION;
 
     public void startTransform() {
-        try (Connection configConnection = new ControlConnector().getConnection()) {
+        Connector connection= new Connector();
+        try (Connection configConnection = connection.getControlConnection()) {
             String sqlGetDownloadPath = "SELECT * FROM configuration WHERE  flag = 'TRUE'  AND STATUS = 'EXTRACTED'";
             try (PreparedStatement preparedStatement = configConnection.prepareStatement(sqlGetDownloadPath)) {
                 try (ResultSet resultSet = preparedStatement.executeQuery()) {
@@ -34,14 +34,14 @@ public class Transform {
 
                             FILE_LOCATION = resultSet.getString("folder_name");
                             if (Files.exists(Paths.get(FILE_LOCATION)) && Files.isDirectory(Paths.get(FILE_LOCATION))) {
-                                new ControlConnector().updateStatusConfig(configConnection, idConfig, "TRANSFORMING");
+                                connection.updateStatusConfig(configConnection, idConfig, "TRANSFORMING");
                                 //todo cập nhật hostname trong db
                                 String hostName = "localhost";
                                 String dbName = resultSet.getString("WH_db_name");
                                 String username = resultSet.getString("WH_source_username");
                                 String password = resultSet.getString("WH_source_password");
                                 System.out.println(dbName + " " + username + " " + password);
-                                try (Connection WHConnection = new WHConnector(hostName, dbName, username, password).getConnection()) {
+                                try (Connection WHConnection = connection.getWHConnection(hostName, dbName, username, password)) {
                                     try {
                                         String sqlTransform = readFileAsString(FILE_LOCATION+"\\transform.sql");
                                         Statement statement = WHConnection.createStatement();
@@ -53,8 +53,8 @@ public class Transform {
 
                                                 while (des.next()) {
                                                   statement.execute("UPDATE description_dim SET name_vi = name_en WHERE id = " + des.getString(1));
-                                                    new ControlConnector().updateStatusConfig(configConnection, idConfig, "TRANSFORMED");
-                                                    new ControlConnector().writeLog(configConnection,
+                                                    connection.updateStatusConfig(configConnection, idConfig, "TRANSFORMED");
+                                                    connection.writeLog(configConnection,
                                                             "UPDATE description_dim TABLE ",
                                                             "Update description_dim table in WH",
                                                             idConfig,
@@ -65,8 +65,8 @@ public class Transform {
 
                                             }
                                         }
-                                        new ControlConnector().updateStatusConfig(configConnection, idConfig, "TRANSFORMED");
-                                        new ControlConnector().writeLog(configConnection,
+                                        connection.updateStatusConfig(configConnection, idConfig, "TRANSFORMED");
+                                        connection.writeLog(configConnection,
                                                 "TRANSFORM",
                                                 "Clean data",
                                                 idConfig,
@@ -77,8 +77,8 @@ public class Transform {
                                     }
                                 } catch (Exception ex) {
                                     //Can't connect to warehouse database
-                                    new ControlConnector().updateFlagConfig(configConnection, idConfig, "FALSE");
-                                    new ControlConnector().writeLog(configConnection,
+                                    connection.updateFlagConfig(configConnection, idConfig, "FALSE");
+                                    connection.writeLog(configConnection,
                                             "TRANSFORM",
                                             "Clean data",
                                             idConfig,
@@ -91,8 +91,8 @@ public class Transform {
 
                             } else {
                                 // can't find the folder path
-                                new ControlConnector().updateFlagConfig(configConnection, idConfig, "ERR");
-                                new ControlConnector().writeLog(configConnection,
+                                connection.updateFlagConfig(configConnection, idConfig, "ERR");
+                                connection.writeLog(configConnection,
                                         "TRANSFORM",
                                         "Clean data",
                                         idConfig,
