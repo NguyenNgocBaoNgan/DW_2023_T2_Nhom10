@@ -55,6 +55,7 @@ public class Extract {
 
 //			duyet qua tung link, doc tung file csv
 			for (String csv_linkString : csv_LinkList) {
+
 				BufferedReader reader = new BufferedReader(new FileReader(csv_linkString));
 				if(reader.readLine() != null) {
 				String line;
@@ -119,13 +120,6 @@ public class Extract {
 	}
 
 	public static void main(String[] args) throws IOException, SQLException {
-//		  Thông tin kết nối
-		String url_control = "jdbc:mysql://localhost:3306/control"; // URL kết nối đến cơ sở dữ liệu control
-		String url_mart = "jdbc:mysql://localhost:3306/weather_mart"; // URL kết nối đến cơ sở dữ liệu weather_mart
-		String url_weather_warehouse = "jdbc:mysql://localhost:3306/weather_warehouse"; // URL kết nối đến cơ sở dữ liệu
-																						// weather_warehouse
-		String username = "root"; // Tên đăng nhập MySQL
-		String password = ""; // Mật khẩu MySQL
 		Extract extract = new Extract();
 //		extract.connectDB(url_control, username, password);
 		extract.extract();
