@@ -37,21 +37,19 @@ public class Connector {
         return conn;
     }
 
-    public Connection getWHConnection(String hostName, String dbName, String username, String password) throws SQLException {
+    public Connection getConnection(String hostName, String dbName, String username, String password) throws SQLException {
+
         //Tạo đối tượng Connection
         Connection conn = null;
         try {
             conn = DriverManager.getConnection("jdbc:mysql://" + hostName + "/" + dbName, username, password);
-            System.out.println("Kết nối staging db thành công");
+            System.out.println("Kết nối " + dbName + " db thành công");
         } catch (SQLException e) {
             e.printStackTrace();
         }
         return conn;
     }
 
-    public static void main(String[] args) throws SQLException {
-        new Connector().getControlConnection();
-    }
 
     public void updateFlagDataLinks(Connection conn, String id, String flag) throws SQLException {
         String updateQuery = "UPDATE data_link SET flag = ? WHERE id = ?";
