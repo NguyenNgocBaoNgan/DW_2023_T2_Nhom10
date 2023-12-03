@@ -6,7 +6,10 @@ import com.example.weather.SendEmail;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.sql.*;
+import java.util.List;
 
 public class WarehouseToAggregate {
     Connector connector;
@@ -23,37 +26,31 @@ public class WarehouseToAggregate {
         // Step 1: Connect to control.db
         try (Connection configConnection = connector.getControlConnection()) {
             if (configConnection.isValid(5)) { // Step 2
-                // Step 3: Get data from config table
-                String sql = readSQLFile("C:\\Users\\LAPTOP USA PRO\\Documents\\Navicat\\MySQL\\Servers\\localhost\\control\\select_Flag_Status.sql");
-				// Thực thi câu SQL
-				PreparedStatement preparedStatement = configConnection.prepareStatement(sql);
-				ResultSet resultSet = preparedStatement.executeQuery();
+                // Lấy dữ liệu có trong bảng config Flag = TRUE Status = PREPARED
+                List<String> sqlLines = Files.readAllLines(Path.of("C:\\Users\\LAPTOP USA PRO\\Documents\\Navicat\\MySQL\\Servers\\localhost\\control\\select_Flag_Status.sql"));
+                String selectQuery = String.join(" ", sqlLines);
+                PreparedStatement preparedStatement = configConnection.prepareStatement(selectQuery);
+                preparedStatement.setString(1, "TRUE");
+                preparedStatement.setString(2, "PREPARED");
+                ResultSet resultSet = preparedStatement.executeQuery();
 
-				// Step 4: Update status in config table
+				// Cập nhật status AGGREGATE_LOAD config table
                 int idConfig = resultSet.getInt(1);
                 while (resultSet.next()) {
                     connector.updateStatusConfig(configConnection, String.valueOf(idConfig), "AGGREGATE_LOAD");
-
 
 //				 // Step 5: Connect to staging.db
                     try (Connection stagingConnection = connector.getConnection(HOSTNAME, STAGING_DB_NAME, USERNAME, PASSWORD)) {
                         if (stagingConnection.isValid(5)) { // Step 6
                             // Step 7.1: Transfer data from records to aggregate
-                            String sql_insert = readSQLFile("C:\\Users\\LAPTOP USA PRO\\Documents\\Navicat\\MySQL\\Servers\\localhost\\weather_warehouse\\insert_data_Aggregate.sql");
-                            Statement statement = stagingConnection.createStatement();
-                            statement.execute(sql_insert);
+                            List<String> sqlLines2 = Files.readAllLines(Path.of("C:\\Users\\LAPTOP USA PRO\\Documents\\Navicat\\MySQL\\Servers\\localhost\\weather_warehouse\\insert_data_Aggregate.sql"));
+                            String insertQuery = String.join(" ", sqlLines2);
+                            preparedStatement = configConnection.prepareStatement(insertQuery);
+                            preparedStatement.executeUpdate();
                             // Step 8: Update config table
                             connector.updateStatusConfig(configConnection, String.valueOf(idConfig), "AGGREGATE_LOADED");
-                            // Step 9: JOIN and update data in aggregate
-                            // ... (your SQL join and update query here)
 
-                            // Step 10: Update status in config table
-                            // ... (your SQL update query here)
-
-                            // Step 11: Check for remaining unprocessed configs
-                            // ... (your SQL query here)
-
-                            // Step 12: Log information
+                            // Step 12: thêm thông tin (thời gian, kết quả ) vào bảng log
                             connector.writeLog(configConnection,
                                     "WAREHOUSE_TO_AGGREGATE",
                                     "Load data",
@@ -61,7 +58,7 @@ public class WarehouseToAggregate {
                                     "SUCCESS",
                                     "");
 
-                            // Step 13: Send success email
+                            // Step 13: Gửi mail thông báo và cập nhật thành công
                             SendEmail.sendMail("Load dữ liệu từ staging vào aggregate thành công!");
 
                         } else { // Step 6.2
@@ -75,15 +72,19 @@ public class WarehouseToAggregate {
                                     String.valueOf(idConfig),
                                     "ERR",
                                     "Cannot connect to warehouse database");
-                            // Step 9.2: Log and send email for config.db connection failure
-//						sendEmail.sendMail("Config ID " + configId + " không kết nối với staging database");
+                            // Step 9.2: Gửi mail thông báo config không kết nối với staging.db được
+						SendEmail.sendMail("Config ID " + idConfig + " không kết nối với staging database");
                         }
+//                        Đóng kết nối stagging.db
+                        connector.closeConnectDB(stagingConnection);
                     }
                 }
-                connector.closeConnectDB(configConnection);
+
             } else { // Step 2.2
                 System.out.println("Connection to records_staging.db failed.");
             }
+//                Đóng kết nối config.db
+            connector.closeConnectDB(configConnection);
         } catch (Exception e) {
 			e.printStackTrace();
         }

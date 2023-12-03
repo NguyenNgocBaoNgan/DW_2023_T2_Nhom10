@@ -7,10 +7,13 @@ import com.example.weather.SendEmail;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.List;
 
 public class AggregateToDataMart {
 	Connector connector;
@@ -22,24 +25,23 @@ public class AggregateToDataMart {
 	public AggregateToDataMart() {
 		connector = new Connector();
 	}
-	private static final String CONTROL_DB_URL = "jdbc:mysql://localhost:3306/control";
-	private static final String STAGING_DB_URL = "jdbc:mysql://localhost:3306/staging";
-	private static final String MART_DB_URL = "jdbc:mysql://localhost:3306/mart";
 
 	public void aggregateToMart() {
+		// Step 1: Connect to control.db
 		try (Connection configConnection = connector.getControlConnection()) {
 			if (configConnection.isValid(5)) {
-				// Step 3: Get data from config table
-				String sql = readSQLFile("C:\\Users\\LAPTOP USA PRO\\Documents\\Navicat\\MySQL\\Servers\\localhost\\control\\select_Flag_Status.sql");
-				// Thực thi câu SQL
-				PreparedStatement preparedStatement = configConnection.prepareStatement(sql);
+				// Lấy dữ liệu có trong bảng config Flag = TRUE Status = AGGRIGATE_LOADED
+				List<String> sqlLines = Files.readAllLines(Path.of("C:\\Users\\LAPTOP USA PRO\\Documents\\Navicat\\MySQL\\Servers\\localhost\\control\\select_Flag_Status.sql"));
+				String selectQuery = String.join(" ", sqlLines);
+				PreparedStatement preparedStatement = configConnection.prepareStatement(selectQuery);
+				preparedStatement.setString(1, "TRUE");
+				preparedStatement.setString(2, "AGGRIGATE_LOADED");
 				ResultSet resultSet = preparedStatement.executeQuery();
 
 				// Step 4: Update status DATAMART_LOAD config table
 				int idConfig = resultSet.getInt(1);
 				while (resultSet.next()) {
 					connector.updateStatusConfig(configConnection, String.valueOf(idConfig), "DATAMART_LOAD");
-
 
 					// Step 5: Connect to staging.db
 					try (Connection stagingConnection = connector.getConnection(HOSTNAME, STAGING_DB_NAME, USERNAME, PASSWORD)) {
@@ -48,8 +50,13 @@ public class AggregateToDataMart {
 							try (Connection martConnection = connector.getConnection(HOSTNAME, MART_DB_NAME, USERNAME, PASSWORD)) {
 								if (martConnection.isValid(5)) {
 									// Step 10: Get data from aggregate table
-									// ... (your SQL query here)
+									List<String> sqlGetData = Files.readAllLines(Path.of("C:\\Users\\LAPTOP USA PRO\\Documents\\Navicat\\MySQL\\Servers\\localhost\\weather_warehouse\\getDataFromAggregate.sql"));
+									String selectDataQuery = String.join(" ", sqlGetData);
+									PreparedStatement preparedStatement2 = stagingConnection.prepareStatement(selectDataQuery);
+									ResultSet resultSet_agg = preparedStatement.executeQuery();
+									while (resultSet_agg.next()) {
 
+									}
 									// Step 11: Transfer data to weather_hours_records
 									// ... (your SQL insert or update query here)
 
@@ -114,8 +121,10 @@ public class AggregateToDataMart {
 			}
 		} catch (SQLException e) {
 			e.printStackTrace();
-		}
-	}
+		} catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
 	private String readSQLFile(String filePath) {
 		StringBuilder content = new StringBuilder();
 		try (BufferedReader reader = new BufferedReader(new FileReader(filePath))) {
