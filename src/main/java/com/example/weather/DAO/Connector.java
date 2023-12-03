@@ -38,7 +38,6 @@ public class Connector {
     }
 
     public Connection getConnection(String hostName, String dbName, String username, String password) throws SQLException {
-
         //Tạo đối tượng Connection
         Connection conn = null;
         try {
@@ -48,6 +47,10 @@ public class Connector {
             e.printStackTrace();
         }
         return conn;
+    }
+    public void closeConnectDB(Connection cc) throws SQLException {
+            cc.close();
+            System.out.println("Đã đóng kết nối đến cơ sở dữ liệu!");
     }
 
 

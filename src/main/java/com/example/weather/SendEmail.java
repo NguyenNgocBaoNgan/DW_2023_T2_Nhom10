@@ -6,7 +6,7 @@ import java.util.Properties;
 
 
 
-public class sendEmail {
+public class SendEmail {
 	private static final String EMAIL_USERNAME = "your@gmail.com"; 
 	private static final String EMAIL_PASSWORD = "123456"; 
 	private static final String SMTP_HOST = "smtp.gmail.com"; 

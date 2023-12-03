@@ -30,16 +30,7 @@ public class ConnectDB {
 		return connection;
 
 	}
-	public void closeConnectDB(Connection cc) {
-		try {
-			cc.close();
-			System.out.println("Đã đóng kết nối đến cơ sở dữ liệu!");
-		} catch (SQLException e) {
-			System.out.println("Kết nối đến cơ sở dữ liệu thất bại!");
-			e.printStackTrace();
-		}
-		
-	}
+
 	public static void main(String[] args) {
 
 		String url_control = "jdbc:mysql://localhost:3306/control"; 
