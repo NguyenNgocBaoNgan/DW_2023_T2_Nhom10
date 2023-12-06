@@ -7,7 +7,6 @@ import java.sql.*;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.util.Date;
@@ -16,7 +15,7 @@ import java.util.Map;
 import com.example.weather.DAO.Connector;
 
 
-public class loadStagging_Warehouse {
+public class LoadStagging_Warehouse {
 	private static final String JDBC_DRIVER = "com.mysql.cj.jdbc.Driver";
     private static final String CONTROL_DB_URL = "jdbc:mysql://localhost:3306/control";
     private static final String STAGING_DB_URL = "jdbc:mysql://localhost:3306/weather_warehouse";
@@ -95,7 +94,7 @@ public class loadStagging_Warehouse {
                     //logEvent(controlConnection, configId, "Update Flag to FALSE", "Connection to Staging DB failed", "ERROR");
 
                     // Gửi mail thông báo
-                    sendEmail.sendMail("Config ID " + configId + " không kết nối với staging database");
+                    SendEmail.sendMail("Config ID " + configId + " không kết nối với staging database");
                     
 
                     // Đóng kết nối với control database và kết thúc
