@@ -37,7 +37,8 @@ public class Connector {
         return conn;
     }
 
-    public Connection getConnection(String hostName, String dbName, String username, String password) throws SQLException {
+    public static Connection getConnection(String hostName, String dbName, String username, String password) throws SQLException {
+
         //Tạo đối tượng Connection
         Connection conn = null;
         try {
@@ -47,10 +48,6 @@ public class Connector {
             e.printStackTrace();
         }
         return conn;
-    }
-    public void closeConnectDB(Connection cc) throws SQLException {
-            cc.close();
-            System.out.println("Đã đóng kết nối đến cơ sở dữ liệu!");
     }
 
 
@@ -76,7 +73,7 @@ public class Connector {
 
     }
 
-    public void updateFlagConfig(Connection conn, String id, String flag) throws SQLException {
+    public static void updateFlagConfig(Connection conn, String id, String flag) throws SQLException {
         String updateQuery = "UPDATE configuration SET flag = ? WHERE id = ?";
 
         try (PreparedStatement preparedStatement = conn.prepareStatement(updateQuery)) {
@@ -119,7 +116,7 @@ public class Connector {
         }
     }
 
-    public void writeLog(Connection conn, String activityType, String description, String configId, String status, String errorDetail) throws SQLException {
+    public static void writeLog(Connection conn, String activityType, String description, String configId, String status, String errorDetail) throws SQLException {
         String insertQuery = "INSERT INTO logs (activity_type, description, config_id, status, error_detail) VALUES (?, ?, ?, ?, ?)";
 
         try (PreparedStatement preparedStatement = conn.prepareStatement(insertQuery)) {
