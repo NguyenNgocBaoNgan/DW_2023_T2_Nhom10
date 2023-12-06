@@ -1,4 +1,7 @@
 package com.example.weather;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.*;
 import java.sql.DriverManager;
@@ -8,7 +11,9 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.util.Date;
-
+import java.util.HashMap;
+import java.util.Map;
+import com.example.weather.DAO.Connector;
 
 
 public class loadStagging_Warehouse {
@@ -43,17 +48,20 @@ public class loadStagging_Warehouse {
             + "  WHERE date_forcast = r1.date_forcast "
             + "    AND time_forcast = r1.time_forcast "
             + ")";
+    private static final Map<String, String> sqlQueries = readSqlQueriesFromFile("D:\\DataWarehouse\\db_warehouse_nhom10\\loading_to_wh.sql");
+
 
     public static void main(String[] args) throws SQLException {
         // Kiểm tra kết nối với control database
-        Connection controlConnection = connectToDatabase(CONTROL_DB_URL, CONTROL_DB_USERNAME, CONTROL_DB_PASSWORD);
+        Connection controlConnection = Connector.getConnection("localhost:3306", "control", "root", "");
+        //Connection controlConnection = connectToDatabase(CONTROL_DB_URL, CONTROL_DB_USERNAME, CONTROL_DB_PASSWORD);
         if (controlConnection == null) {
             return;
         }
 
         // Lấy dữ liệu từ bảng config
-        ResultSet configData = executeQuery(controlConnection, SQL_SELECT_CONFIG_DATA);
-       
+        ResultSet configData = executeQuery(controlConnection, sqlQueries.get("SQL_SELECT_CONFIG_DATA"));
+       System.out.println(sqlQueries.get("SQL_CHECK_DATA_EXISTS"));
         
 
         // Cập nhật trạng thái của các config đang chạy
@@ -69,26 +77,22 @@ public class loadStagging_Warehouse {
                 updateConfigStatus(controlConnection, configId, "LOADING", flag);
 
                 // Kiểm tra kết nối với staging database
-//                System.out.println(STAGING_DB_URL);
-//                System.out.println(STAGING_DB_USERNAME);
-                System.out.println("bla bla");
-                Connection stagingConnection = connectToDatabase(STAGING_DB_URL, STAGING_DB_USERNAME, STAGING_DB_PASSWORD);
-                
-                
-                
-//             // Lấy dữ liệu từ bảng stagging
-//                ResultSet stagingData = executeQuery(stagingConnection, SQL_SELECT_RECORDS_STAGING_DATA);
-//                ResultSet recordData = executeQuery(stagingConnection, SQL_SELECT_RECORDS_DATA);
-////                printResultSet(stagingData);
-                
+                Connection stagingConnection = Connector.getConnection("localhost:3306", "weather_warehouse", "root", "");
+
+               // Connection stagingConnection = connectToDatabase(STAGING_DB_URL, STAGING_DB_USERNAME, STAGING_DB_PASSWORD);
+
+            // Lấy dữ liệu từ bảng stagging
+
                 if (stagingConnection == null) {
                     System.out.println("Không thể kết nối với staging database");
 
                     // Cập nhật Flag=FALSE trong bảng config
-                    updateFlagInConfig(controlConnection, configId, "FALSE");
+                    Connector.updateFlagConfig(controlConnection,String.valueOf(configId),"FALSE");
+//                    updateFlagInConfig(controlConnection, configId, "FALSE");
 
                     // Ghi vào log sự kiện cập nhật flag
-                    logEvent(controlConnection, configId, "Update Flag to FALSE", "Connection to Staging DB failed", "ERROR");
+                    Connector.writeLog(controlConnection,"Update Flag to FALSE","Connection to Staging DB failed", String.valueOf(configId),"ERROR","Can't connect to DB");
+                    //logEvent(controlConnection, configId, "Update Flag to FALSE", "Connection to Staging DB failed", "ERROR");
 
                     // Gửi mail thông báo
                     sendEmail.sendMail("Config ID " + configId + " không kết nối với staging database");
@@ -102,7 +106,7 @@ public class loadStagging_Warehouse {
 
                 //Load dữ liệu từ staging sang record
                 transferData(stagingConnection);
-                System.out.println("dfdfd");
+
                //check dữ liệu và gán is_expired = True
                 updateIsExpired(stagingConnection);
                 
@@ -147,7 +151,7 @@ public class loadStagging_Warehouse {
         try {
             
             // Tạo câu lệnh SQL để chuyển dữ liệu từ bảng 'records' sang 'records_raging'
-            String transferQuery = SQL_INSERT_DATA;
+            String transferQuery = sqlQueries.get("SQL_INSERT_DATA");
             
             // Tạo và thực thi câu lệnh
             stmt = connection.createStatement();
@@ -167,7 +171,7 @@ public class loadStagging_Warehouse {
         try {
     //    	String SQL_INSERT_DATA = "INSERT INTO records (province_id, time_record, date_record, time_forcast, date_forcast, temperature, feel_like, description_id, wind_direction_id, wind_speed, humidity, uv_index, cloud_cover, precipitation, accumulation) SELECT province, time_record, date_record, time_forcast, date_forcast, temperature, feel_like, description, wind_direction, wind_speed, humidity, uv_index, cloud_cover, precipitation, accumulation FROM records_staging";
             // Câu lệnh SQL để cập nhật
-            String sqlUpdate = SQL_CHECK_DATA_EXISTS;
+            String sqlUpdate = sqlQueries.get("SQL_CHECK_DATA_EXISTS");
 
             // Chuẩn bị câu lệnh
             preparedStatement = connection.prepareStatement(sqlUpdate);
@@ -212,7 +216,7 @@ public class loadStagging_Warehouse {
 
     // Function to update the status of a config
     private static void updateConfigStatus(Connection connection, int configId, String status, String flag) throws SQLException {
-        String sql = SQL_UPDATE_CONFIG_STATUS;
+        String sql = sqlQueries.get("SQL_UPDATE_CONFIG_STATUS");
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setString(1, status);
             statement.setString(2, flag);
@@ -226,7 +230,7 @@ public class loadStagging_Warehouse {
     	
         int count = 0;
         System.out.println(date);
-        try (PreparedStatement statement = connection.prepareStatement(SQL_CHECK_DATA_EXISTS)) {
+        try (PreparedStatement statement = connection.prepareStatement(sqlQueries.get("SQL_CHECK_DATA_EXISTS"))) {
             statement.setString(1, date);
             statement.setString(2, hour);
             ResultSet resultSet = statement.executeQuery();
@@ -242,20 +246,20 @@ public class loadStagging_Warehouse {
     }
 
     // Function to update data as expired for a specific date and hour
-    private static void updateDataExpired(Connection connection, String date, String hour) throws SQLException {
-        String sql = SQL_UPDATE_DATA_EXPIRED;
-        try (PreparedStatement statement = connection.prepareStatement(sql)) {
-            statement.setBoolean(1, true);
-            statement.setString(2, date);
-            statement.setString(3, hour);
-            statement.executeUpdate();
-            connection.commit();
-        }
-    }
+//    private static void updateDataExpired(Connection connection, String date, String hour) throws SQLException {
+//        String sql = sqlQueries.get("SQL_UPDATE_DATA_EXPIRED");
+//        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+//            statement.setBoolean(1, true);
+//            statement.setString(2, date);
+//            statement.setString(3, hour);
+//            statement.executeUpdate();
+//            connection.commit();
+//        }
+//    }
 
     // Function to insert data into the records table
     private static void insertData(Connection connection, String date, String hour, double temperature, double humidity, double pressure) throws SQLException {
-        String sql = SQL_INSERT_DATA;
+        String sql = sqlQueries.get("SQL_INSERT_DATA");
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setString(1, date);
             statement.setString(2, hour);
@@ -293,6 +297,26 @@ public class loadStagging_Warehouse {
             e.printStackTrace();
             // Xử lý ngoại lệ nếu cần thiết
         }
+    }
+// Function to read SQL file
+    private static Map<String, String> readSqlQueriesFromFile(String filePath) {
+        Map<String, String> sqlQueries = new HashMap<>();
+        try {
+            // Đọc tất cả các dòng từ tệp tin SQL
+            Files.lines(Paths.get(filePath)).forEach(line -> {
+                // Tách tên và nội dung câu lệnh SQL
+                String[] parts = line.split(":");
+                if (parts.length == 2) {
+                    String queryName = parts[0].trim();
+                    String query = parts[1].trim();
+                    // Lưu vào Map
+                    sqlQueries.put(queryName, query);
+                }
+            });
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return sqlQueries;
     }
 
 
