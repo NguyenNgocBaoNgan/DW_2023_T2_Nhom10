@@ -95,10 +95,10 @@ public class LoadStagging_Warehouse {
 
                     // Gửi mail thông báo
 //                    SendEmail.sendMail("Config ID " + configId + " không kết nối với staging database");
-                    SendEmail.sendMail("nganluvjb@gmail.com","Important Update: Action Required", "Dear User,\n\n"
-                            + "We wanted to inform you about an important update that requires your attention.\n"
-                            + "Please review the details below:\n\n"
-                            + "Update: [Details of the update]\n\n"
+                    SendEmail.sendMail("nganluvjb@gmail.com","Important Error: Action Required", "Dear User,\n\n"
+                            + "We wanted to inform you about an important error that requires your attention.\n"
+                            + "Please review the error below:\n\n"
+                            + "Error: [Connection to weather_warehouse failed]\n\n"
                             + "Thank you for your cooperation.\n"
                             + "Best regards,\n"
                             + "Ngan" );
