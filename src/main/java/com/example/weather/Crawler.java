@@ -37,8 +37,6 @@ public class Crawler {
     String province = "";
 
     public static void main(String[] args) throws IOException, ParseException {
-        String url = "https://www.accuweather.com/en/vn/vinh-long/356354/hourly-weather-forecast/356354";
-
         Crawler crawler = new Crawler();
         crawler.startCrawl();
     }
@@ -46,20 +44,25 @@ public class Crawler {
 
     public void startCrawl() throws IOException, ParseException {
         try (Connection connection = new Connector().getControlConnection()) {
-            String sqlGetDownloadPath = "SELECT * FROM configuration WHERE  flag = 'TRUE'  AND STATUS = 'PREPARED'";
-            try (PreparedStatement preparedStatement = connection.prepareStatement(sqlGetDownloadPath)) {
+            String getConfig = readFileAsString("get_config.sql");
+            try (PreparedStatement preparedStatement = connection.prepareStatement(getConfig)) {
+                preparedStatement.setString(1, "TRUE");//flag
+                preparedStatement.setString(2, "PREPARED");//status
                 try (ResultSet resultSet = preparedStatement.executeQuery()) {
+
                     if (resultSet.isBeforeFirst()) {
-                        while (resultSet.next()) {
+                        do {
+                            resultSet.next();
                             FILE_LOCATION = resultSet.getString("download_path");
                             String idConfig = resultSet.getString("id").trim();
                             if (Files.exists(Paths.get(FILE_LOCATION)) && Files.isDirectory(Paths.get(FILE_LOCATION))) {
                                 new Connector().updateStatusConfig(connection, idConfig, "CRAWLING");
 
-                                String sqlGetLinks = "SELECT * FROM data_link where flag = 'TRUE' ";
+                                String sqlGetLinks = readFileAsString("get_link.sql");
                                 try (PreparedStatement preparedStatement1 = connection.prepareStatement(sqlGetLinks)) {
                                     try (ResultSet links = preparedStatement1.executeQuery()) {
-                                        while (links.next()) {
+                                        do {
+                                            links.next();
                                             String link = links.getString("link");
                                             String content = crawl(link, new ArrayList<String>());
                                             if (content != null) {
@@ -67,7 +70,7 @@ public class Crawler {
                                             } else {
                                                 //Link error
                                                 String idLink = links.getString("id");
-                                                new Connector().updateFlagDataLinks(connection, idLink, "ERR");
+                                                new Connector().updateFlagDataLinks(connection, idLink, "FALSE");
                                                 System.out.println("CRAWL FAILED");
 
                                                 new Connector().writeLog(connection,
@@ -79,7 +82,7 @@ public class Crawler {
                                                 //TODO
                                                 //Còn 1 bước gửi mail
                                             }
-                                        }
+                                        } while (links.next());
                                         //Success
                                         new Connector().updateStatusConfig(connection, idConfig, "CRAWLED");
                                         new Connector().writeLog(connection,
@@ -92,7 +95,7 @@ public class Crawler {
                                 }
                             } else {
                                 // can't find the download path
-                                new Connector().updateFlagConfig(connection, idConfig, "ERR");
+                                new Connector().updateFlagConfig(connection, idConfig, "FALSE");
                                 new Connector().writeLog(connection,
                                         "CRAWL",
                                         "Get data from web",
@@ -102,16 +105,12 @@ public class Crawler {
                                 //TODO
                                 //Còn 1 bước gửi mail và log
                             }
-
-
-                        }
-                    } else {
-                        System.out.println("Không có config hơp lệ");
+                        } while (resultSet.next());
                     }
+                    connection.close();
                 }
             }
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
+        } catch (SQLException ignore) {
         }
     }
 
@@ -137,6 +136,16 @@ public class Crawler {
         } catch (IOException e) {
             e.printStackTrace();
         }
+    }
+
+    private String readFileAsString(String filePath) {
+        String data = "";
+        try {
+            data = new String(Files.readAllBytes(Paths.get(filePath)));
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        return data;
     }
 
     private String crawl(String url, ArrayList<String> visited) throws ParseException {
