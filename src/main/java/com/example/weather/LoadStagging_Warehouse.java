@@ -61,7 +61,7 @@ public class LoadStagging_Warehouse {
         // Lấy dữ liệu từ bảng config
         ResultSet configData = executeQuery(controlConnection, sqlQueries.get("SQL_SELECT_CONFIG_DATA"));
        //System.out.println(sqlQueries.get("SQL_CHECK_DATA_EXISTS"));
-        
+        //
 
         // Cập nhật trạng thái của các config đang chạy
         while (configData.next()) {
