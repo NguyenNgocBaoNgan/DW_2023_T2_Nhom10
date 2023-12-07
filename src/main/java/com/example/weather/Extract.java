@@ -45,18 +45,18 @@ public class Extract {
                             String truncateQuery = String.join(" ", sqlLines);
                             PreparedStatement preparedStatement = configConnection.prepareStatement(truncateQuery);
                             preparedStatement.executeUpdate();
-                            // Lấy danh sách các tệp tin CSV trong thư mục
+//                          Lấy danh sách các tệp tin CSV trong thư mục
                             List<Path> csvFiles = Files.list(Paths.get(csv_folder_path))
                                     .filter(path -> path.toString().endsWith(".csv"))
                                     .collect(Collectors.toList());
 //                            Kiểm tra xem có file csv trong thư mục hay không?
                             if (!csvFiles.isEmpty()) {
-                                // Load dữ liệu từ file csv với địa chỉ trong config vào bảng records_staging
+//                               Load dữ liệu từ file csv với địa chỉ trong config vào bảng records_staging
                                 processAndInsertData(stagingConnection, csvFiles);
-                                //Cập nhật status EXTRACTED trong wearther_warehouse.db
+//                          Cập nhật status EXTRACTED trong wearther_warehouse.db
                                 Connector.updateStatusConfig(configConnection, idConfig, "EXTRACTED");
                             } else {
- //                          Cập nhật status ERR config table
+                                // Cập nhật status ERR config table
                                 Connector.updateStatusConfig(configConnection, idConfig, "ERR");
 //			                thêm thông tin (thời gian, kết quả ) vào bảng log
                                 Connector.writeLog(configConnection,

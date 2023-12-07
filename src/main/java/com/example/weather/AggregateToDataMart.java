@@ -140,7 +140,7 @@ public class AggregateToDataMart {
 
                                     }
 //									đóng kết nối mart db
-									martConnection.close();
+                                    martConnection.close();
                                 } else {
                                     // Update Flag=FALSE in config table
                                     Connector.updateFlagDataLinks(martConnection, idConfig, "FALSE");
@@ -172,12 +172,12 @@ public class AggregateToDataMart {
                             }
 
                             // Log information
-							Connector.writeLog(configConnection,
-									"AGGREGATE_TO_DATAMART",
-									"Loading data from csv files to records_staging table",
-									idConfig,
-									"SUCCESS",
-									"Loading data from csv files to records_staging table successfully!");
+                            Connector.writeLog(configConnection,
+                                    "AGGREGATE_TO_DATAMART",
+                                    "Loading data from csv files to records_staging table",
+                                    idConfig,
+                                    "SUCCESS",
+                                    "Loading data from csv files to records_staging table successfully!");
 
                             // Send success email
                             String toEmail = resultSet.getString("error_to_email");
@@ -195,25 +195,25 @@ public class AggregateToDataMart {
                                     + "Thank you for your continued use of our services.\n\n"
                                     + "Best Regards,\nYour Application Team";
 
-							SendEmail.sendMail(toEmail, subject, emailContent);
+                            SendEmail.sendMail(toEmail, subject, emailContent);
 
                             // Update STATUS = PREPARED in config table
-							Connector.updateStatusConfig(configConnection, idConfig, "PREPARED");
+                            Connector.updateStatusConfig(configConnection, idConfig, "PREPARED");
 
                             //  Close staging db connections
                             stagingConnection.close();
 
                         } else {
                             // Update Flag=FALSE in config table
-							Connector.updateFlagDataLinks(configConnection, idConfig, "FALSE");
+                            Connector.updateFlagDataLinks(configConnection, idConfig, "FALSE");
 
                             // Log event Can't connect to Staging DB!
-							Connector.writeLog(configConnection,
-									"AGGREGATE_TO_DATAMART",
-									"Loading data from csv files to records_staging table",
-									idConfig,
-									"ERR",
-									"Can't connect to Staging DB!");
+                            Connector.writeLog(configConnection,
+                                    "AGGREGATE_TO_DATAMART",
+                                    "Loading data from csv files to records_staging table",
+                                    idConfig,
+                                    "ERR",
+                                    "Can't connect to Staging DB!");
 
                             // Send email notification
                             String toEmail = resultSet.getString("error_to_email");
@@ -228,14 +228,14 @@ public class AggregateToDataMart {
                                     + "Thank you for your cooperation.\n\n"
                                     + "Best Regards,\nYour Application Team";
 
-							SendEmail.sendMail(toEmail, subject, emailContent);
+                            SendEmail.sendMail(toEmail, subject, emailContent);
                         }
                     }
                 }
 
             }
 //            Close connection control db
-        configConnection.close();
+            configConnection.close();
         } catch (Exception e) {
             throw new RuntimeException(e);
         }

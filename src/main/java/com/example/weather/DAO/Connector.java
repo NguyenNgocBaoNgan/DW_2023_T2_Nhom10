@@ -38,9 +38,9 @@ public class Connector {
             e.printStackTrace();
         }
     }
- 
+
     public static Connection getControlConnection() throws SQLException {
- 
+
         //Tạo đối tượng Connection
         Connection conn = null;
         try {
@@ -67,9 +67,9 @@ public class Connector {
 
 
     public static void updateFlagDataLinks(Connection conn, String id, String flag) throws SQLException {
- 
+
         String updateQuery = readFileAsString("updateFlagDataLinks.sql");
- 
+
 
         try (PreparedStatement preparedStatement = conn.prepareStatement(updateQuery)) {
             // Thiết lập giá trị tham số cho câu lệnh UPDATE
@@ -113,9 +113,9 @@ public class Connector {
     }
 
     public static void updateStatusConfig(Connection conn, String id, String status) throws SQLException {
- 
+
         String updateQuery = readFileAsString("updateStatusConfig.sql");
- 
+
 
         try (PreparedStatement preparedStatement = conn.prepareStatement(updateQuery)) {
             // Thiết lập giá trị tham số cho câu lệnh UPDATE
@@ -134,17 +134,18 @@ public class Connector {
             e.printStackTrace();
         }
     }
- 
-      public static String readFileAsString(String filePath)  {
-        String data ;
-          try {
-              data = new String(Files.readAllBytes(Paths.get(filePath)));
-          } catch (IOException e) {
-              throw new RuntimeException(e);
-          }
-          return data;
- 
+
+    public static String readFileAsString(String filePath) {
+        String data;
+        try {
+            data = new String(Files.readAllBytes(Paths.get(filePath)));
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        return data;
+
     }
+
     // Phương thức trả về đối tượng ResultSet
     public static ResultSet getResultSetWithConfigFlags(Connection configConnection, String flag, String status) throws Exception {
         // Đọc nội dung của tệp vào một chuỗi
@@ -156,8 +157,9 @@ public class Connector {
 
         // Thực hiện truy vấn và trả về ResultSet
         return preparedStatement.executeQuery();
- 
+
     }
+
     public static void writeLog(Connection conn, String activityType, String description, String configId, String status, String errorDetail) throws SQLException {
         String insertQuery = "INSERT INTO logs (activity_type, description, config_id, status, error_detail) VALUES (?, ?, ?, ?, ?)";
 
