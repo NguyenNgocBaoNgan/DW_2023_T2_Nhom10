@@ -31,7 +31,7 @@ public class WarehouseToAggregate {
 				// Cập nhật status AGGREGATE_LOAD config table
                 String idConfig = resultSet.getString("id").trim();
                 while (resultSet.next()) {
-                    Connector.updateStatusConfig(configConnection, String.valueOf(idConfig), "AGGREGATE_LOAD");
+                    Connector.updateStatusConfig(configConnection, idConfig, "AGGREGATE_LOAD");
 
 //				 // Step 5: Connect to staging.db
                     try (Connection stagingConnection = Connector.getConnection(HOSTNAME, STAGING_DB_NAME, USERNAME, PASSWORD)) {
@@ -39,24 +39,24 @@ public class WarehouseToAggregate {
                             // Step 7.1: Transfer data from records to aggregate
                             List<String> sqlLines2 = Files.readAllLines(Path.of("insert_data_Aggregate.sql"));
                             String insertQuery = String.join(" ", sqlLines2);
-                            preparedStatement = configConnection.prepareStatement(insertQuery);
+                            PreparedStatement preparedStatement = configConnection.prepareStatement(insertQuery);
                             preparedStatement.executeUpdate();
                             // Step 8: Update config table
-                            Connector.updateStatusConfig(configConnection, String.valueOf(idConfig), "AGGREGATE_LOADED");
+                            Connector.updateStatusConfig(configConnection, idConfig, "AGGREGATE_LOADED");
 
                         } else { // Step 6.2
                             // Step 7.2: Update config table
-                            Connector.updateFlagConfig(configConnection, String.valueOf(idConfig), "FALSE");
+                            Connector.updateFlagConfig(configConnection, idConfig, "FALSE");
 
                             // Step 8.2: Log and send email for staging.db connection failure
                             Connector.writeLog(configConnection,
                                     "WAREHOUSE_TO_AGGREGATE",
                                     "Load data",
-                                    String.valueOf(idConfig),
+                                    idConfig,
                                     "ERR",
                                     "Cannot connect to warehouse database");
                             // Step 9.2: Gửi mail thông báo config không kết nối với staging.db được
-						SendEmail.sendMail("Config ID " + idConfig + " không kết nối với staging database");
+//						SendEmail.sendMail("Config ID " + idConfig + " không kết nối với staging database");
                         }
 //                        Đóng kết nối stagging.db
                         stagingConnection.close();
@@ -66,12 +66,12 @@ public class WarehouseToAggregate {
                 Connector.writeLog(configConnection,
                         "WAREHOUSE_TO_AGGREGATE",
                         "Load data",
-                        String.valueOf(idConfig),
+                        idConfig,
                         "SUCCESS",
                         "");
 
                 // Step 13: Gửi mail thông báo và cập nhật thành công
-                SendEmail.sendMail("Load dữ liệu từ staging vào aggregate thành công!");
+//                SendEmail.sendMail("Load dữ liệu từ staging vào aggregate thành công!");
 
             } else { // Step 2.2
                 System.out.println("Connection to records_staging.db failed.");
