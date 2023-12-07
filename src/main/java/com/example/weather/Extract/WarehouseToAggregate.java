@@ -59,7 +59,7 @@ public class WarehouseToAggregate {
                                     "");
 
                             // Step 13: Gửi mail thông báo và cập nhật thành công
-                            SendEmail.sendMail("Load dữ liệu từ staging vào aggregate thành công!");
+//                            SendEmail.sendMail("Load dữ liệu từ staging vào aggregate thành công!");
 
                         } else { // Step 6.2
                             // Step 7.2: Update config table
@@ -73,10 +73,10 @@ public class WarehouseToAggregate {
                                     "ERR",
                                     "Cannot connect to warehouse database");
                             // Step 9.2: Gửi mail thông báo config không kết nối với staging.db được
-						SendEmail.sendMail("Config ID " + idConfig + " không kết nối với staging database");
+//						SendEmail.sendMail("Config ID " + idConfig + " không kết nối với staging database");
                         }
 //                        Đóng kết nối stagging.db
-                        connector.closeConnectDB(stagingConnection);
+                        stagingConnection.close();
                     }
                 }
 
@@ -84,7 +84,7 @@ public class WarehouseToAggregate {
                 System.out.println("Connection to records_staging.db failed.");
             }
 //                Đóng kết nối config.db
-            connector.closeConnectDB(configConnection);
+            configConnection.close();
         } catch (Exception e) {
 			e.printStackTrace();
         }

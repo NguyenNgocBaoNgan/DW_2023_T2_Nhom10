@@ -94,7 +94,7 @@ public class LoadStagging_Warehouse {
                     //logEvent(controlConnection, configId, "Update Flag to FALSE", "Connection to Staging DB failed", "ERROR");
 
                     // Gửi mail thông báo
-                    SendEmail.sendMail("Config ID " + configId + " không kết nối với staging database");
+//                    SendEmail.sendMail("Config ID " + configId + " không kết nối với staging database");
                     
 
                     // Đóng kết nối với control database và kết thúc
@@ -269,34 +269,7 @@ public class LoadStagging_Warehouse {
             connection.commit();
         }
     }
-    
- // Function to update Flag in config table
-    private static void updateFlagInConfig(Connection connection, int configId, String flag) throws SQLException {
-        String sql = "UPDATE config SET flag = ? WHERE id = ?";
-        try (PreparedStatement statement = connection.prepareStatement(sql)) {
-            statement.setString(1, flag);
-            statement.setInt(2, configId);
-            statement.executeUpdate();
-            connection.commit();
-        }
-    }
 
-    // Function to log an event
-    private static void logEvent(Connection connection, int configId, String activityType, String description, String status) {
-        String sql = "INSERT INTO log (activity_type, time_stamp, description, config_id, status) VALUES (?, ?, ?, ?, ?)";
-        try (PreparedStatement statement = connection.prepareStatement(sql)) {
-            statement.setString(1, activityType);
-            statement.setTimestamp(2, new Timestamp(System.currentTimeMillis()));
-            statement.setString(3, description);
-            statement.setInt(4, configId);
-            statement.setString(5, status);
-            statement.executeUpdate();
-            connection.commit();
-        } catch (SQLException e) {
-            e.printStackTrace();
-            // Xử lý ngoại lệ nếu cần thiết
-        }
-    }
 // Function to read SQL file
     private static Map<String, String> readSqlQueriesFromFile(String filePath) {
         Map<String, String> sqlQueries = new HashMap<>();

@@ -55,13 +55,13 @@ public class Extract {
 					// Xóa tất cả các tệp tin CSV sau khi xử lý xong
 					clearFolder(CSV_FOLDER_PATH);
 //					Đóng kết nối records_stagging.db
-					connector.closeConnectDB(stagingConnection);
+					stagingConnection.close();
                 }
             } else {
                 System.out.println("Database connection failed.");
             }
 //			Đóng kết nối control.db
-            connector.closeConnectDB(configConnection);
+            configConnection.close();
         } catch (SQLException e) {
             e.printStackTrace();
         } catch (IOException e) {
