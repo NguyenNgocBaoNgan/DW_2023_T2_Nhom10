@@ -1,4 +1,4 @@
-package com.example.weather.Extract;
+package com.example.weather;
 
 import com.example.weather.DAO.Connector;
 import com.example.weather.SendEmail;
@@ -28,41 +28,41 @@ public class WarehouseToAggregate {
                 // Lấy dữ liệu có trong bảng config Flag = TRUE Status = PREPARED
                 ResultSet resultSet = Connector.getResultSetWithConfigFlags(configConnection, "TRUE", "PREPARED");
 
-                // Cập nhật status AGGREGATE_LOAD config table
+
                 String idConfig = resultSet.getString("id").trim();
                 while (resultSet.next()) {
+                    // Cập nhật status AGGREGATE_LOAD config table
                     Connector.updateStatusConfig(configConnection, idConfig, "AGGREGATE_LOAD");
 
-//				 // Step 5: Connect to staging.db
+//				 // Step 5: Connect to wearther_warehouse.db
                     try (Connection stagingConnection = Connector.getConnection(HOSTNAME, STAGING_DB_NAME, USERNAME, PASSWORD)) {
-                        if (stagingConnection.isValid(5)) { // Step 6
-                            // Step 7.1: Transfer data from records to aggregate
+                        if (stagingConnection.isValid(5)) {
+                            //Create aggregate table and transfer data from records to aggregate
                             List<String> sqlLines2 = Files.readAllLines(Path.of("insert_data_Aggregate.sql"));
                             String insertQuery = String.join(" ", sqlLines2);
                             PreparedStatement preparedStatement = configConnection.prepareStatement(insertQuery);
                             preparedStatement.executeUpdate();
-                            // Step 8: Update config table
+                            // Update config table status AGGREGATE_LOADED
                             Connector.updateStatusConfig(configConnection, idConfig, "AGGREGATE_LOADED");
-//                        Đóng kết nối stagging.db
-                            stagingConnection.close();
-                        } else { // Step 6.2
-                            // Step 7.2: Update config table
+
+                        } else {
+                            //  Update config table status FALSE
                             Connector.updateFlagDataLinks(configConnection, idConfig, "FALSE");
-//                            // Ghi vào log sự kiện cập nhật flag
+                            // Ghi vào log sự kiện cập nhật flag
                             Connector.writeLog(configConnection,
-                                    "EXTRACT",
-                                    "Loading data from csv files to records_staging table",
+                                    "WAREHOUSE_TO_AGGREGATE",
+                                    "Loading data from records_staging table to aggregate table",
                                     idConfig,
                                     "ERR",
-                                    "Cant connect to Staging DB");
-                            // Step 9.2: Gửi mail thông báo config không kết nối với staging.db được
+                                    "Cant connect to wearther_warehouse DB");
+                            // Gửi mail thông báo config không kết nối với wearther_warehouse.db được
                             String toEmail = resultSet.getString("error_to_email");
-                            String subject = "Error Connecting to Staging Database";
+                            String subject = "Error Connecting to wearther_warehouse Database";
 
-                            String emailContent = "Dear User,\n\n"
-                                    + "We are experiencing difficulties connecting to the Staging Database for the data loading process. "
+                            String emailContent = "Dear Admin,\n\n"
+                                    + "We are experiencing difficulties connecting to the wearther_warehouse Database for the data loading process. "
                                     + "Unfortunately, the connection attempt has failed with the following error:\n\n"
-                                    + "Error Message: Can't connect to Staging DB\n\n"
+                                    + "Error Message: Can't connect to wearther_warehouse DB\n\n"
                                     + "Our technical team is actively investigating the issue and working towards a swift resolution. "
                                     + "We appreciate your patience and understanding during this time.\n\n"
                                     + "Thank you for your cooperation.\n\n"
@@ -70,9 +70,10 @@ public class WarehouseToAggregate {
 
                             SendEmail.sendMail(toEmail, subject, emailContent);
                         }
+//                        Đóng kết nối stagging.db
+                        stagingConnection.close();
 
-
-                        // Step 12: thêm thông tin (thời gian, kết quả ) vào bảng log
+                        // thêm thông tin (thời gian, kết quả ) vào bảng log
                         Connector.writeLog(configConnection,
                                 "WAREHOUSE_TO_AGGREGATE",
                                 "Load data from warehouse to aggregate table",
@@ -80,12 +81,12 @@ public class WarehouseToAggregate {
                                 "SUCCESS",
                                 "");
 
-                        // Step 13: Gửi mail thông báo và cập nhật thành công
+                        // Gửi mail thông báo và cập nhật thành công
                         String toEmail = resultSet.getString("success_to_email");
 
                         String subject = "Successful Data Load from Warehouse to Aggregate Table";
 
-                        String emailContent = "Dear User,\n\n"
+                        String emailContent = "Dear Admin,\n\n"
                                 + "We are pleased to inform you that the process of loading data from the warehouse to the aggregate table has been completed successfully. "
                                 + "All data has been aggregated and updated in the target table without any issues.\n\n"
                                 + "Summary of the Process:\n"
@@ -102,10 +103,8 @@ public class WarehouseToAggregate {
                         throw new RuntimeException(e);
                     }
                 }
-            } else { // Step 2.2
-                return;
             }
-//                Đóng kết nối config.db
+//                Đóng kết nối control.db
             configConnection.close();
         } catch (Exception e) {
             e.printStackTrace();

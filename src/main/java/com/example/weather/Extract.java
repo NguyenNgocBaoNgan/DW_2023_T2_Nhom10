@@ -1,4 +1,4 @@
-package com.example.weather.Extract;
+package com.example.weather;
 
 import com.example.weather.DAO.Connector;
 import com.example.weather.SendEmail;

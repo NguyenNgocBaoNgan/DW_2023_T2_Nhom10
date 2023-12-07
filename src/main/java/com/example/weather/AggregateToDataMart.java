@@ -1,5 +1,4 @@
-package com.example.weather.Extract;
-
+package com.example.weather;
 
 import com.example.weather.DAO.Connector;
 import com.example.weather.SendEmail;
@@ -16,129 +15,234 @@ import java.sql.SQLException;
 import java.util.List;
 
 public class AggregateToDataMart {
-	Connector connector;
-	private static final String HOSTNAME = "localhost";
-	private static final String STAGING_DB_NAME = "weather_warehouse";
-	private static final String MART_DB_NAME = "weather_mart";
-	private static final String USERNAME = "root";
-	private static final String PASSWORD = "";
-	public AggregateToDataMart() {
-		connector = new Connector();
-	}
+    private static final String HOSTNAME = "localhost";
+    private static final String STAGING_DB_NAME = "weather_warehouse";
+    private static final String MART_DB_NAME = "weather_mart";
+    private static final String USERNAME = "root";
+    private static final String PASSWORD = "";
 
-	public void aggregateToMart() {
-		// Step 1: Connect to control.db
-		try (Connection configConnection = connector.getControlConnection()) {
-			if (configConnection.isValid(5)) {
-				// Lấy dữ liệu có trong bảng config Flag = TRUE Status = AGGRIGATE_LOADED
-				List<String> sqlLines = Files.readAllLines(Path.of("C:\\Users\\LAPTOP USA PRO\\Documents\\Navicat\\MySQL\\Servers\\localhost\\control\\select_Flag_Status.sql"));
-				String selectQuery = String.join(" ", sqlLines);
-				PreparedStatement preparedStatement = configConnection.prepareStatement(selectQuery);
-				preparedStatement.setString(1, "TRUE");
-				preparedStatement.setString(2, "AGGRIGATE_LOADED");
-				ResultSet resultSet = preparedStatement.executeQuery();
+    public AggregateToDataMart() {
+    }
 
-				// Step 4: Update status DATAMART_LOAD config table
-				int idConfig = resultSet.getInt(1);
-				while (resultSet.next()) {
-					connector.updateStatusConfig(configConnection, String.valueOf(idConfig), "DATAMART_LOAD");
+    public void aggregateToMart() {
+        // Connect to control.db
+        try (Connection configConnection = Connector.getControlConnection()) {
+            if (configConnection.isValid(5)) {
+                // Lấy dữ liệu có trong bảng config Flag = TRUE Status = AGGRIGATE_LOADED
+                ResultSet resultSet = Connector.getResultSetWithConfigFlags(configConnection, "TRUE", "AGGRIGATE_LOADED");
 
-					// Step 5: Connect to staging.db
-					try (Connection stagingConnection = connector.getConnection(HOSTNAME, STAGING_DB_NAME, USERNAME, PASSWORD)) {
-						if (stagingConnection.isValid(5)) {
-							// Step 7.1: Connect to mart.db
-							try (Connection martConnection = connector.getConnection(HOSTNAME, MART_DB_NAME, USERNAME, PASSWORD)) {
-								if (martConnection.isValid(5)) {
-									// Step 10: Get data from aggregate table
-									List<String> sqlGetData = Files.readAllLines(Path.of("C:\\Users\\LAPTOP USA PRO\\Documents\\Navicat\\MySQL\\Servers\\localhost\\weather_warehouse\\getDataFromAggregate.sql"));
-									String selectDataQuery = String.join(" ", sqlGetData);
-									PreparedStatement preparedStatement2 = stagingConnection.prepareStatement(selectDataQuery);
-									ResultSet resultSet_agg = preparedStatement2.executeQuery();
-									while (resultSet_agg.next()) {
+                String idConfig = resultSet.getString("id").trim();
+                while (resultSet.next()) {
+                    //  Update status DATAMART_LOAD config table
+                    Connector.updateStatusConfig(configConnection, idConfig, "DATAMART_LOAD");
+                    //  Connect to staging.db
+                    try (Connection stagingConnection = Connector.getConnection(HOSTNAME, STAGING_DB_NAME, USERNAME, PASSWORD)) {
+                        if (stagingConnection.isValid(5)) {
+                            // Connect to mart.db
+                            try (Connection martConnection = Connector.getConnection(HOSTNAME, MART_DB_NAME, USERNAME, PASSWORD)) {
+                                if (martConnection.isValid(5)) {
+                                    // Get data from aggregate table
+                                    List<String> sqlGetData = Files.readAllLines(Path.of("getDataFromAggregate.sql"));
+                                    String selectDataQuery = String.join(" ", sqlGetData);
+                                    PreparedStatement preparedStatement = stagingConnection.prepareStatement(selectDataQuery);
+                                    ResultSet resultSet_agg = preparedStatement.executeQuery();
+                                    while (resultSet_agg.next()) {
+                                        // Transfer data to weather_hours_records
+                                        String insertSql = Connector.readFileAsString("insert_weather_hour_records.sql");
+                                        PreparedStatement psInsert = martConnection.prepareStatement(insertSql);
+                                        String updateSql = Connector.readFileAsString("update_weather_hour_records.sql");
+                                        PreparedStatement psUpdate = martConnection.prepareStatement(updateSql);
 
-									}
-									// Step 11: Transfer data to weather_hours_records
-									// ... (your SQL insert or update query here)
+                                        // Insert statement
+                                        psInsert.setString(1, resultSet_agg.getString("province_name"));
+                                        psInsert.setTime(2, resultSet_agg.getTime("time_record"));
+                                        psInsert.setDate(3, resultSet_agg.getDate("date_record"));
+                                        psInsert.setTime(4, resultSet_agg.getTime("time_forcast"));
+                                        psInsert.setDate(5, resultSet_agg.getDate("date_forcast"));
+                                        psInsert.setInt(6, resultSet_agg.getInt("temperature"));
+                                        psInsert.setInt(7, resultSet_agg.getInt("feel_like"));
+                                        psInsert.setString(8, resultSet_agg.getString("description_name"));
+                                        psInsert.setString(9, resultSet_agg.getString("wind_direction_name"));
+                                        psInsert.setInt(10, resultSet_agg.getInt("wind_speed"));
+                                        psInsert.setInt(11, resultSet_agg.getInt("humidity"));
+                                        psInsert.setInt(12, resultSet_agg.getInt("uv_index"));
+                                        psInsert.setInt(13, resultSet_agg.getInt("cloud_cover"));
+                                        psInsert.setInt(14, resultSet_agg.getInt("precipitation"));
+                                        psInsert.setFloat(15, resultSet_agg.getFloat("accumulation"));
+                                        psInsert.setString(15, "FALSE");
 
-									// Step 12: Run method to calculate averages
-									// ... (call your method here)
+                                        psInsert.setTime(17, resultSet_agg.getTime("time_forcast"));
+                                        psInsert.setDate(18, resultSet_agg.getDate("date_forcast"));
 
-									// Step 13: Transfer calculated data to weather_date_records
-									// ... (your SQL insert or update query here)
+                                        psInsert.executeUpdate();
 
-									// Step 14: Update STATUS = DATAMART_LOADED in config table
-									// ... (your SQL update query here)
+                                        // Update statement if duplicate data
+                                        psUpdate.setTime(1, resultSet_agg.getTime("time_forcast"));
+                                        psUpdate.setDate(2, resultSet_agg.getDate("date_forcast"));
+                                        psUpdate.setInt(3, resultSet_agg.getInt("temperature"));
+                                        psUpdate.setInt(4, resultSet_agg.getInt("feel_like"));
+                                        psUpdate.setString(5, resultSet_agg.getString("description_name"));
+                                        psUpdate.setString(6, resultSet_agg.getString("wind_direction_name"));
+                                        psUpdate.setInt(7, resultSet_agg.getInt("wind_speed"));
+                                        psUpdate.setInt(8, resultSet_agg.getInt("humidity"));
+                                        psUpdate.setInt(9, resultSet_agg.getInt("uv_index"));
+                                        psUpdate.setInt(10, resultSet_agg.getInt("cloud_cover"));
+                                        psUpdate.setInt(11, resultSet_agg.getInt("precipitation"));
+                                        psUpdate.setFloat(12, resultSet_agg.getFloat("accumulation"));
+                                        psUpdate.executeUpdate();
 
-								} else {
-									// Step 9a: Update Flag=FALSE in config table
-									// ... (your SQL update query here)
+                                        // Update is_available = TRUE
+                                        String update_is_available = Connector.readFileAsString("update_is_available_true.sql");
+                                        PreparedStatement psUpdate_available = martConnection.prepareStatement(update_is_available);
+                                        psUpdate_available.setString(1, "TRUE");
+                                        psUpdate_available.executeUpdate();
 
-									// Step 10a: Log event
-									// ... (log event code here)
+                                        // Step: Transfer calculated data to weather_date_records
+                                        String insertSql_day_records = Connector.readFileAsString("insert_weather_day_records.sql");
+                                        PreparedStatement psInsert_day_records = martConnection.prepareStatement(insertSql_day_records);
 
-									// Step 11a: Send email notification
-//									SendEmail.sendMail("Không thể kết nối đến Mart.db!");
+                                        String updateSql_day_records = Connector.readFileAsString("update_weather_day_records.sql");
+                                        PreparedStatement psUpdate_day_records = martConnection.prepareStatement(updateSql_day_records);
 
-									// Step 20: Close connections
+                                        // Insert statement
+                                        psInsert_day_records.setString(1, resultSet_agg.getString("province_name"));
+                                        psInsert_day_records.setDate(2, resultSet_agg.getDate("date_record"));
+                                        psInsert_day_records.setTime(3, resultSet_agg.getTime("time_record"));
+                                        psInsert_day_records.setDate(4, resultSet_agg.getDate("date_forcast"));
+                                        psInsert_day_records.setInt(5, resultSet_agg.getInt("temperature"));
+                                        psInsert_day_records.setInt(6, resultSet_agg.getInt("feel_like"));
+                                        psInsert_day_records.setString(7, resultSet_agg.getString("description_name"));
+                                        psInsert_day_records.setString(8, resultSet_agg.getString("description_name"));
+                                        psInsert_day_records.setString(9, resultSet_agg.getString("description_name"));
+                                        psInsert_day_records.setInt(10, resultSet_agg.getInt("humidity"));
+                                        psInsert_day_records.setInt(11, resultSet_agg.getInt("cloud_cover"));
+                                        psInsert_day_records.setInt(12, resultSet_agg.getInt("precipitation"));
+                                        psInsert_day_records.setInt(13, resultSet_agg.getInt("accumulation"));
+                                        psInsert_day_records.executeUpdate();
+
+                                        // Update statement if duplicate data
+                                        psUpdate_day_records.setTime(1, resultSet_agg.getTime("time_forcast"));
+                                        psUpdate_day_records.setDate(2, resultSet_agg.getDate("date_forcast"));
+                                        psUpdate_day_records.setInt(3, resultSet_agg.getInt("temperature"));
+                                        psUpdate_day_records.setInt(4, resultSet_agg.getInt("feel_like"));
+                                        psUpdate_day_records.setString(5, resultSet_agg.getString("description_name"));
+                                        psUpdate_day_records.setString(6, resultSet_agg.getString("wind_direction_name"));
+                                        psUpdate_day_records.setInt(7, resultSet_agg.getInt("wind_speed"));
+                                        psUpdate_day_records.setInt(8, resultSet_agg.getInt("humidity"));
+                                        psUpdate_day_records.setInt(9, resultSet_agg.getInt("uv_index"));
+                                        psUpdate_day_records.setInt(10, resultSet_agg.getInt("cloud_cover"));
+                                        psUpdate_day_records.setInt(11, resultSet_agg.getInt("precipitation"));
+                                        psUpdate_day_records.setFloat(12, resultSet_agg.getFloat("accumulation"));
+                                        psUpdate_day_records.executeUpdate();
+
+                                        // Update STATUS = DATAMART_LOADED in config table
+                                        Connector.updateStatusConfig(configConnection, idConfig, "DATAMART_LOADED");
+
+                                    }
+//									đóng kết nối mart db
 									martConnection.close();
-									return; // Exit the program
-								}
-							}
+                                } else {
+                                    // Update Flag=FALSE in config table
+                                    Connector.updateFlagDataLinks(martConnection, idConfig, "FALSE");
 
-							// Step 15: Check for remaining unprocessed configs
-							// ... (your SQL query here)
+                                    //  Log event
+                                    Connector.writeLog(configConnection,
+                                            "AGGREGATE_TO_DATAMART",
+                                            "Loading data from csv files to records_staging table",
+                                            idConfig,
+                                            "ERR",
+                                            "Cant connect to Mart DB");
 
-							// Step 16: Log information
-							// ... (log information code here)
+                                    //  Send email notification
 
-							// Step 17: Send success email
-//							SendEmail.sendMail("The data mart processing was successful.");
+                                    String toEmail = resultSet.getString("error_to_email");
 
-							// Step 18: Update STATUS = PREPARED in config table
-							// ... (your SQL update query here)
+                                    String subject = "Connection Error to Mart.db";
+                                    String emailContent = "Dear Admin,\n\n"
+                                            + "We regret to inform you that an issue occurred while attempting to connect to the Mart.db database. "
+                                            + "Below are the details of the error:\n\n"
+                                            + "Error Message: Cannot connect to Mart.db\n\n"
+                                            + "Our technical team is actively investigating the matter and will strive to resolve the issue as soon as possible.\n\n"
+                                            + "Thank you for bringing this to our attention. If you require further assistance or have any questions, please feel free to contact us.\n\n"
+                                            + "Best Regards,\nSupport Team";
 
-							// Step 19: Close connections
-							stagingConnection.close();
+                                    SendEmail.sendMail(toEmail, subject, emailContent);
 
-						} else { // Step 6.2
-							// Step 9a: Update Flag=FALSE in config table
-							// ... (your SQL update query here)
+                                }
+                            }
 
-							// Step 10a: Log event
-							// ... (log event code here)
+                            // Log information
+							Connector.writeLog(configConnection,
+									"AGGREGATE_TO_DATAMART",
+									"Loading data from csv files to records_staging table",
+									idConfig,
+									"SUCCESS",
+									"Loading data from csv files to records_staging table successfully!");
 
-							// Step 11a: Send email notification
-//							SendEmail.sendMail("Config Database Connection Failure. Unable to connect to staging.db.");
+                            // Send success email
+                            String toEmail = resultSet.getString("error_to_email");
 
-							// Step 20: Close connection
-							return; // Exit the program
-						}
-					}
-				}
+                            String subject = "Successful Data Mart Processing";
 
-			} else { // Step 2.2
-				System.out.println("Connection to control.db failed.");
-			}
-		} catch (SQLException e) {
-			e.printStackTrace();
-		} catch (IOException e) {
+                            String emailContent = "Dear Admin,\n\n"
+                                    + "We are pleased to inform you that the data mart processing has been completed successfully. "
+                                    + "All data has been processed and updated in the Mart.db database without any issues.\n\n"
+                                    + "Summary of the Process:\n"
+                                    + "- Source: [Your Source]\n"  // Replace with your actual data source
+                                    + "- Destination: Mart.db\n"
+                                    + "- Status: Success\n\n"
+                                    + "If you have any questions or require further information, please feel free to contact our support team.\n\n"
+                                    + "Thank you for your continued use of our services.\n\n"
+                                    + "Best Regards,\nYour Application Team";
+
+							SendEmail.sendMail(toEmail, subject, emailContent);
+
+                            // Update STATUS = PREPARED in config table
+							Connector.updateStatusConfig(configConnection, idConfig, "PREPARED");
+
+                            //  Close staging db connections
+                            stagingConnection.close();
+
+                        } else {
+                            // Update Flag=FALSE in config table
+							Connector.updateFlagDataLinks(configConnection, idConfig, "FALSE");
+
+                            // Log event Can't connect to Staging DB!
+							Connector.writeLog(configConnection,
+									"AGGREGATE_TO_DATAMART",
+									"Loading data from csv files to records_staging table",
+									idConfig,
+									"ERR",
+									"Can't connect to Staging DB!");
+
+                            // Send email notification
+                            String toEmail = resultSet.getString("error_to_email");
+                            String subject = "Error Connecting to Staging Database";
+
+                            String emailContent = "Dear Admin,\n\n"
+                                    + "We are experiencing difficulties connecting to the Staging Database for the data loading process. "
+                                    + "Unfortunately, the connection attempt has failed with the following error:\n\n"
+                                    + "Error Message: Can't connect to Staging DB\n\n"
+                                    + "Our technical team is actively investigating the issue and working towards a swift resolution. "
+                                    + "We appreciate your patience and understanding during this time.\n\n"
+                                    + "Thank you for your cooperation.\n\n"
+                                    + "Best Regards,\nYour Application Team";
+
+							SendEmail.sendMail(toEmail, subject, emailContent);
+                        }
+                    }
+                }
+
+            }
+//            Close connection control db
+        configConnection.close();
+        } catch (Exception e) {
             throw new RuntimeException(e);
         }
     }
-	private String readSQLFile(String filePath) {
-		StringBuilder content = new StringBuilder();
-		try (BufferedReader reader = new BufferedReader(new FileReader(filePath))) {
-			String line;
-			while ((line = reader.readLine()) != null) {
-				content.append(line).append("\n");
-			}
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
-		return content.toString();
-	}
-	public static void main(String[] args) throws SQLException {
-		AggregateToDataMart aggregateToDataMart = new AggregateToDataMart();
-		aggregateToDataMart.aggregateToMart();
-	}
+
+    public static void main(String[] args) throws SQLException {
+//        AggregateToDataMart aggregateToDataMart = new AggregateToDataMart();
+//        aggregateToDataMart.aggregateToMart();
+    }
 }
