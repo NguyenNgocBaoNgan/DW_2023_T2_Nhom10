@@ -73,7 +73,8 @@ public class LoadStagging_Warehouse {
             
             if (flag.equals("TRUE")&& status.equals("TRANSFORMED")) {
                 // Nếu trạng thái là TRANSFORMED, thì cập nhật trạng thái thành LOADING
-                updateConfigStatus(controlConnection, configId, "LOADING", flag);
+                Connector.updateFlagConfig(controlConnection,String.valueOf(configId),"LOADING");
+                //updateConfigStatus(controlConnection, configId, "LOADING", flag);
 
                 // Kiểm tra kết nối với staging database
                 Connection whConnection = Connector.getConnection("localhost:3306", "weather_warehouse", "root", "");
@@ -95,7 +96,7 @@ public class LoadStagging_Warehouse {
 
                     // Gửi mail thông báo
 //                    SendEmail.sendMail("Config ID " + configId + " không kết nối với staging database");
-                    SendEmail.sendMail("nganluvjb@gmail.com","Important Error: Action Required", "Dear User,\n\n"
+                    SendEmail.sendMail("20130331@st.hcmuaf.edu.vn","Important Error: Action Required", "Dear User,\n\n"
                             + "We wanted to inform you about an important error that requires your attention.\n"
                             + "Please review the error below:\n\n"
                             + "Error: [Connection to weather_warehouse failed]\n\n"
