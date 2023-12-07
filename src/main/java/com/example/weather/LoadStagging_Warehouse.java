@@ -60,7 +60,7 @@ public class LoadStagging_Warehouse {
 
         // Lấy dữ liệu từ bảng config
         ResultSet configData = executeQuery(controlConnection, sqlQueries.get("SQL_SELECT_CONFIG_DATA"));
-       System.out.println(sqlQueries.get("SQL_CHECK_DATA_EXISTS"));
+       //System.out.println(sqlQueries.get("SQL_CHECK_DATA_EXISTS"));
         
 
         // Cập nhật trạng thái của các config đang chạy
@@ -73,7 +73,9 @@ public class LoadStagging_Warehouse {
             
             if (flag.equals("TRUE")&& status.equals("TRANSFORMED")) {
                 // Nếu trạng thái là TRANSFORMED, thì cập nhật trạng thái thành LOADING
-                Connector.updateFlagConfig(controlConnection,String.valueOf(configId),"LOADING");
+
+
+                Connector.updateStatusConfig(controlConnection,String.valueOf(configId),"LOADING");
                 //updateConfigStatus(controlConnection, configId, "LOADING", flag);
 
                 // Kiểm tra kết nối với staging database
@@ -160,6 +162,7 @@ public class LoadStagging_Warehouse {
             
             // Tạo và thực thi câu lệnh
             stmt = connection.createStatement();
+            connection.setAutoCommit(false);
             int rowsAffected = stmt.executeUpdate(transferQuery);
             connection.commit();
             // Hiển thị thông báo sau khi chuyển dữ liệu
@@ -178,6 +181,7 @@ public class LoadStagging_Warehouse {
             // Câu lệnh SQL để cập nhật
             String sqlUpdate = sqlQueries.get("SQL_CHECK_DATA_EXISTS");
 
+            connection.setAutoCommit(false);
             // Chuẩn bị câu lệnh
             preparedStatement = connection.prepareStatement(sqlUpdate);
 
