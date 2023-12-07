@@ -53,7 +53,7 @@ public class AggregateToDataMart {
 									List<String> sqlGetData = Files.readAllLines(Path.of("C:\\Users\\LAPTOP USA PRO\\Documents\\Navicat\\MySQL\\Servers\\localhost\\weather_warehouse\\getDataFromAggregate.sql"));
 									String selectDataQuery = String.join(" ", sqlGetData);
 									PreparedStatement preparedStatement2 = stagingConnection.prepareStatement(selectDataQuery);
-									ResultSet resultSet_agg = preparedStatement.executeQuery();
+									ResultSet resultSet_agg = preparedStatement2.executeQuery();
 									while (resultSet_agg.next()) {
 
 									}

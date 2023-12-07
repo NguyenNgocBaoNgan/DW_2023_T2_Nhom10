@@ -166,10 +166,6 @@ public class Extract {
     }
 
     public static void main(String[] args) throws IOException, SQLException {
-        Extract extract = new Extract();
-        Connector connection = new Connector();
-//			extract.connectDB(url_control, username, password);
-//			extract.extract();
-//			extract.clearFolder("D:\\Downloads\\Data crawl");
+
     }
 }
