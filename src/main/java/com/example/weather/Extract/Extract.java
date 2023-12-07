@@ -1,6 +1,7 @@
 package com.example.weather.Extract;
 
 import com.example.weather.DAO.Connector;
+import com.example.weather.SendEmail;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
@@ -13,83 +14,91 @@ import java.nio.file.*;
 import java.util.stream.Collectors;
 
 public class Extract {
-    Connector connector;
     private static final String HOSTNAME = "localhost";
     private static final String STAGING_DB_NAME = "weather_warehouse";
     private static final String USERNAME = "root";
     private static final String PASSWORD = "";
-    private static final String CSV_FOLDER_PATH = "D:\\Downloads\\Data crawl";
+//    private static final String CSV_FOLDER_PATH = "D:\\Downloads\\Data crawl";
 
     public Extract() {
-        connector = new Connector();
+
     }
 
     public void extract() {
-        try (Connection configConnection = connector.getControlConnection()) {
+        try (Connection configConnection = Connector.getControlConnection()) {
             if (configConnection.isValid(5)) {
                 // Lấy dữ liệu bảng config có Flag = TRUE Status = CRAWLED
+                ResultSet resultSet = Connector.getResultSetWithConfigFlags(configConnection, "TRUE", "CRAWLED");
 
-//                List<String> sqlLines = Files.readAllLines(Path.of("C:\\Users\\LAPTOP USA PRO\\Documents\\Navicat\\MySQL\\Servers\\localhost\\weather_warehouse\\insertDataToRecords_staging.sql"));
-//                String insertQuery = String.join(" ", sqlLines);
-//                PreparedStatement preparedStatement = configConnection.prepareStatement(insertQuery);
-//                preparedStatement.setString(1, "EXTRACTING");
-//                preparedStatement.executeUpdate();
+                String idConfig = resultSet.getString("id").trim();
+                String csv_folder_path = resultSet.getString("download_path");
+                while (resultSet.next()) {
+                    // Cập nhật status EXTRACTING config table
+                    Connector.updateStatusConfig(configConnection, idConfig, "EXTRACTING");
+                    // Kết nối với staging db
+                    try (Connection stagingConnection = Connector.getConnection(HOSTNAME, STAGING_DB_NAME, USERNAME, PASSWORD)) {
+                        if (stagingConnection.isValid(5)) {
+                            // Truncate bảng records_staging
+                            List<String> sqlLines = Files.readAllLines(Path.of("./sql_thuy/truncate_records_staging.sql"));
+                            String truncateQuery = String.join(" ", sqlLines);
+                            PreparedStatement preparedStatement = configConnection.prepareStatement(truncateQuery);
+                            preparedStatement.executeUpdate();
+                            // Xử lý CSV
+                            // Lấy danh sách các tệp tin CSV trong thư mục
+                            List<Path> csvFiles = Files.list(Paths.get(csv_folder_path))
+                                    .filter(path -> path.toString().endsWith(".csv"))
+                                    .collect(Collectors.toList());
+                            if (!csvFiles.isEmpty()) {
+                                // Load dữ liệu từ file csv với địa chỉ trong config vào bảng records_staging
+                                processAndInsertData(stagingConnection, csvFiles);
+                                //Cập nhật status EXTRACTED trong config.db
+                                Connector.updateStatusConfig(configConnection, idConfig, "EXTRACTED");
+                            } else {
+                        //          Cập nhật status ERR config table
+                                Connector.updateStatusConfig(configConnection, idConfig, "ERR");
+                                //			thêm thông tin (thời gian, kết quả ) vào bảng log
+                                Connector.writeLog(configConnection,
+                                        "EXTRACT",
+                                        "Loading data from csv files to records_staging table",
+                                        idConfig,
+                                        "ERR",
+                                        "CSV files not exist");
 
-				// Cập nhật status EXTRACTING config table
+                            //			Gửi mail thông báo lỗi
+                                SendEmail.sendMail("","","Not csv files exist");
+                            }
+                        } else {
+                            // Cập nhật Flag=FALSE trong bảng config
+                            Connector.updateFlagDataLinks(configConnection, idConfig, "FALSE");
+                            // Ghi vào log sự kiện cập nhật flag
+                            Connector.writeLog(configConnection,
+                                    "EXTRACT",
+                                    "Loading data from csv files to records_staging table",
+                                    idConfig,
+                                    "ERR",
+                                    "Cant connect to Staging DB");
+                            // Gửi mail thông báo config không kết nối với staging.db được
+                            SendEmail.sendMail("","","Cant connect to Staging DB");
+                        }
 
-				// kết nối với staging db
-                try (Connection stagingConnection = connector.getConnection(HOSTNAME, STAGING_DB_NAME, USERNAME, PASSWORD)) {
-                    if (stagingConnection.isValid(5)) {
-						// truncate bảng records_staging
-						List<String> sqlLines = Files.readAllLines(Path.of("C:\\Users\\LAPTOP USA PRO\\Documents\\Navicat\\MySQL\\Servers\\localhost\\weather_warehouse\\truncate_records_staging.sql"));
-						String truncateQuery = String.join(" ", sqlLines);
-						PreparedStatement preparedStatement = configConnection.prepareStatement(truncateQuery);
-						preparedStatement.executeUpdate();
-						// xử lý csv
-						processCsvFiles(stagingConnection);
-                    }else{
-//						Cập nhật Flag=FALSE trong bảng config
-//						Ghi vào log sự kiện cập nhật flag
-//						Gửi mail thông báo config không kết nối với staging.db được
-					}
-					// Xóa tất cả các tệp tin CSV sau khi xử lý xong
-					clearFolder(CSV_FOLDER_PATH);
-//					Đóng kết nối records_stagging.db
-					stagingConnection.close();
+                        // Đóng kết nối records_stagging.db
+                        stagingConnection.close();
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
                 }
+                // Xóa tất cả các tệp tin CSV sau khi xử lý xong
+                clearFolder(csv_folder_path);
             } else {
                 System.out.println("Database connection failed.");
             }
-//			Đóng kết nối control.db
+            // Đóng kết nối control.db
             configConnection.close();
-        } catch (SQLException e) {
-            e.printStackTrace();
-        } catch (IOException e) {
+        } catch (Exception e) {
             throw new RuntimeException(e);
         }
     }
 
-    public void processCsvFiles(Connection connection) {
-        try {
-            // Lấy danh sách các tệp tin CSV trong thư mục
-            List<Path> csvFiles = getCsvFiles();
-            // Load dữ liệu từ file csv với địa chỉ trong config vào bảng records_staging
-            processAndInsertData(connection, csvFiles);
-
-        } catch (IOException | SQLException e) {
-//			Cập nhật status ERR config table
-//			thêm thông tin (thời gian, kết quả ) vào bảng log
-//			Gửi mail thông báo lỗi
-            e.printStackTrace();
-        }
-    }
-
-    public List<Path> getCsvFiles() throws IOException {
-        // Lọc tất cả các tệp tin có định dạng CSV trong thư mục
-        return Files.list(Paths.get(CSV_FOLDER_PATH))
-                .filter(path -> path.toString().endsWith(".csv"))
-                .collect(Collectors.toList());
-    }
 
     public void processAndInsertData(Connection connection, List<Path> csvLines) throws SQLException, IOException {
         for (Path csv_linkString : csvLines) {
@@ -146,7 +155,7 @@ public class Extract {
 //							========================================= file sql ==============================
                 }
                 lineCount++;
-				//Cập nhật status EXTRACTED trong config.db
+
             }
         }
 
@@ -166,10 +175,6 @@ public class Extract {
     }
 
     public static void main(String[] args) throws IOException, SQLException {
-        Extract extract = new Extract();
-        Connector connection = new Connector();
-//			extract.connectDB(url_control, username, password);
-//			extract.extract();
-//			extract.clearFolder("D:\\Downloads\\Data crawl");
+
     }
 }

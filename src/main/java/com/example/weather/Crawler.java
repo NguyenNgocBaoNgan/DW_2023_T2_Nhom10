@@ -43,7 +43,7 @@ public class Crawler {
 
 
     public void startCrawl() throws IOException, ParseException {
-        try (Connection connection = new Connector().getControlConnection()) {
+        try (Connection connection = Connector.getControlConnection()) {
             String getConfig = readFileAsString("get_config.sql");
             try (PreparedStatement preparedStatement = connection.prepareStatement(getConfig)) {
                 preparedStatement.setString(1, "TRUE");//flag
@@ -56,7 +56,7 @@ public class Crawler {
                             FILE_LOCATION = resultSet.getString("download_path");
                             String idConfig = resultSet.getString("id").trim();
                             if (Files.exists(Paths.get(FILE_LOCATION)) && Files.isDirectory(Paths.get(FILE_LOCATION))) {
-                                new Connector().updateStatusConfig(connection, idConfig, "CRAWLING");
+                                Connector.updateStatusConfig(connection, idConfig, "CRAWLING");
 
                                 String sqlGetLinks = readFileAsString("get_link.sql");
                                 try (PreparedStatement preparedStatement1 = connection.prepareStatement(sqlGetLinks)) {
