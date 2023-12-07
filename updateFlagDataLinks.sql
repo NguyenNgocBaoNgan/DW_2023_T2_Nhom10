@@ -1,0 +1,1 @@
+UPDATE data_link SET flag = ? WHERE id = ?

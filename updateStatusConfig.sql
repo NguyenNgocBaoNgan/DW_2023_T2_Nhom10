@@ -1,0 +1,1 @@
+UPDATE configuration SET status = ? WHERE id = ?

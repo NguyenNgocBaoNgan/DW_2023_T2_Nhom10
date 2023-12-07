@@ -13,17 +13,6 @@ import java.sql.Statement;
 import java.util.Properties;
 
 public class Transform {
-    Properties prop = new Properties();
-
-    {
-        try {
-            prop.load(Connector.class.getClassLoader().getResourceAsStream("data.properties"));
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-
-    }
-
     String FILE_LOCATION;
 
     public void startTransform() {
