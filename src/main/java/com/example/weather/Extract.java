@@ -18,28 +18,28 @@ public class Extract {
     private static final String STAGING_DB_NAME = "weather_warehouse";
     private static final String USERNAME = "root";
     private static final String PASSWORD = "";
-//    private static final String CSV_FOLDER_PATH = "D:\\Downloads\\Data crawl";
 
     public Extract() {
 
     }
 
-    public void extract() {
-        try (Connection configConnection = Connector.getControlConnection()) {
+    public void extract() throws SQLException {
+
+        try (Connection configConnection = Connector.getControlConnection();) {
             if (configConnection.isValid(5)) {
                 // Lấy dữ liệu bảng config có Flag = TRUE Status = CRAWLED
                 ResultSet resultSet = Connector.getResultSetWithConfigFlags(configConnection, "TRUE", "CRAWLED");
 
-                String idConfig = resultSet.getString("id").trim();
-                String csv_folder_path = resultSet.getString("download_path");
                 while (resultSet.next()) {
+                    String idConfig = resultSet.getString("id").trim();
+                    String csv_folder_path = resultSet.getString("download_path");
                     // Cập nhật status EXTRACTING config table
                     Connector.updateStatusConfig(configConnection, idConfig, "EXTRACTING");
                     // Kết nối với staging db
                     try (Connection stagingConnection = Connector.getConnection(HOSTNAME, STAGING_DB_NAME, USERNAME, PASSWORD)) {
                         if (stagingConnection.isValid(5)) {
                             // Truncate bảng records_staging
-                            List<String> sqlLines = Files.readAllLines(Path.of("./sql_thuy/truncate_records_staging.sql"));
+                            List<String> sqlLines = Files.readAllLines(Path.of("truncate_records_staging.sql"));
                             String truncateQuery = String.join(" ", sqlLines);
                             PreparedStatement preparedStatement = configConnection.prepareStatement(truncateQuery);
                             preparedStatement.executeUpdate();
@@ -54,9 +54,9 @@ public class Extract {
                                 //Cập nhật status EXTRACTED trong config.db
                                 Connector.updateStatusConfig(configConnection, idConfig, "EXTRACTED");
                             } else {
-                        //          Cập nhật status ERR config table
+                                //          Cập nhật status ERR config table
                                 Connector.updateStatusConfig(configConnection, idConfig, "ERR");
-                                //			thêm thông tin (thời gian, kết quả ) vào bảng log
+//                                //			thêm thông tin (thời gian, kết quả ) vào bảng log
                                 Connector.writeLog(configConnection,
                                         "EXTRACT",
                                         "Loading data from csv files to records_staging table",
@@ -64,13 +64,25 @@ public class Extract {
                                         "ERR",
                                         "CSV files not exist");
 
-                            //			Gửi mail thông báo lỗi
-                                SendEmail.sendMail("","","Not csv files exist");
+                                //			Gửi mail thông báo lỗi
+                                String toEmail = resultSet.getString("error_to_email");
+                                String subject = "Error Encountered During Data Loading Process";
+
+                                String emailContent = "Dear Admin,\n\n"
+                                        + "We regret to inform you that an error occurred during the process of loading data from CSV files to the 'records_staging' table. "
+                                        + "The specific issue is as follows:\n\n"
+                                        + "Error Message: Not csv files exist\n\n"
+                                        + "Our technical team is actively investigating the matter and will provide a resolution as soon as possible.\n\n"
+                                        + "Thank you for your understanding.\n\n"
+                                        + "Best Regards,\nYour Application Team";
+
+                                SendEmail.sendMail(toEmail, subject, emailContent);
+
                             }
                         } else {
                             // Cập nhật Flag=FALSE trong bảng config
                             Connector.updateFlagDataLinks(configConnection, idConfig, "FALSE");
-                            // Ghi vào log sự kiện cập nhật flag
+//                            // Ghi vào log sự kiện cập nhật flag
                             Connector.writeLog(configConnection,
                                     "EXTRACT",
                                     "Loading data from csv files to records_staging table",
@@ -78,17 +90,32 @@ public class Extract {
                                     "ERR",
                                     "Cant connect to Staging DB");
                             // Gửi mail thông báo config không kết nối với staging.db được
-                            SendEmail.sendMail("","","Cant connect to Staging DB");
+                            String toEmail = resultSet.getString("error_to_email");
+                            String subject = "Error Connecting to Staging Database";
+
+                            String emailContent = "Dear User,\n\n"
+                                    + "We are experiencing difficulties connecting to the Staging Database for the data loading process. "
+                                    + "Unfortunately, the connection attempt has failed with the following error:\n\n"
+                                    + "Error Message: Can't connect to Staging DB\n\n"
+                                    + "Our technical team is actively investigating the issue and working towards a swift resolution. "
+                                    + "We appreciate your patience and understanding during this time.\n\n"
+                                    + "Thank you for your cooperation.\n\n"
+                                    + "Best Regards,\nYour Application Team";
+
+                            SendEmail.sendMail(toEmail, subject, emailContent);
+
                         }
 
                         // Đóng kết nối records_stagging.db
                         stagingConnection.close();
+                        // Xóa tất cả các tệp tin CSV sau khi xử lý xong
+                        clearFolder(csv_folder_path);
                     } catch (IOException e) {
                         throw new RuntimeException(e);
                     }
+
                 }
-                // Xóa tất cả các tệp tin CSV sau khi xử lý xong
-                clearFolder(csv_folder_path);
+
             } else {
                 System.out.println("Database connection failed.");
             }
@@ -128,8 +155,8 @@ public class Extract {
                 String accumulation = data[14];
 
                 // Lưu dữ liệu vào cơ sở dữ liệu
-//						========================================= file sql ==============================
-                List<String> sqlLines = Files.readAllLines(Path.of("C:\\Users\\LAPTOP USA PRO\\Documents\\Navicat\\MySQL\\Servers\\localhost\\weather_warehouse\\insertDataToRecords_staging.sql"));
+                List<String> sqlLines = Files.readAllLines(Path.of("insertDataToRecords_staging.sql"));
+                System.out.println(sqlLines + "sql nè");
                 String insertQuery = String.join(" ", sqlLines);
 
                 try (PreparedStatement preparedStatement = connection.prepareStatement(insertQuery)) {
@@ -175,6 +202,5 @@ public class Extract {
     }
 
     public static void main(String[] args) throws IOException, SQLException {
-
     }
 }
