@@ -29,7 +29,7 @@ public class Crawler {
         try {
             prop.load(Connector.class.getClassLoader().getResourceAsStream("data.properties"));
         } catch (IOException e) {
-            e.printStackTrace();
+            throw new RuntimeException(e);
         }
     }
 
@@ -42,29 +42,28 @@ public class Crawler {
     }
 
 
-    public void startCrawl() throws IOException, ParseException {
+    public void startCrawl() throws IOException {
         try (Connection connection = new Connector().getControlConnection()) {
             String getConfig = readFileAsString("get_config.sql");
             try (PreparedStatement preparedStatement = connection.prepareStatement(getConfig)) {
                 preparedStatement.setString(1, "TRUE");//flag
                 preparedStatement.setString(2, "PREPARED");//status
                 try (ResultSet resultSet = preparedStatement.executeQuery()) {
-
                     if (resultSet.isBeforeFirst()) {
                         do {
                             resultSet.next();
                             FILE_LOCATION = resultSet.getString("download_path");
                             String idConfig = resultSet.getString("id").trim();
+                            String email = resultSet.getString("error_to_email").trim();
                             if (Files.exists(Paths.get(FILE_LOCATION)) && Files.isDirectory(Paths.get(FILE_LOCATION))) {
-                                new Connector().updateStatusConfig(connection, idConfig, "CRAWLING");
-
+                                Connector.updateStatusConfig(connection, idConfig, "CRAWLING");
                                 String sqlGetLinks = readFileAsString("get_link.sql");
                                 try (PreparedStatement preparedStatement1 = connection.prepareStatement(sqlGetLinks)) {
                                     try (ResultSet links = preparedStatement1.executeQuery()) {
                                         do {
                                             links.next();
                                             String link = links.getString("link");
-                                            String content = crawl(link, new ArrayList<String>());
+                                            String content = crawl(link, new ArrayList<>());
                                             if (content != null) {
                                                 exportData(content);
                                             } else {
@@ -73,19 +72,27 @@ public class Crawler {
                                                 new Connector().updateFlagDataLinks(connection, idLink, "FALSE");
                                                 System.out.println("CRAWL FAILED");
 
-                                                new Connector().writeLog(connection,
+                                                Connector.writeLog(connection,
                                                         "CRAWL",
                                                         "Get data from web",
                                                         idConfig,
                                                         "ERR",
                                                         "Error with link at id is" + idLink);
-                                                //TODO
-                                                //Còn 1 bước gửi mail
+                                                String subject = "Error: Issue Retrieving Data from Web";
+                                                String body = "Dear Admin,\n\n" +
+                                                        "We encountered an error while trying to retrieve data from the web in one of our steps. The specific issue is as follows:\n\n" +
+                                                        "Error Details: An error occurred with the link identified by ID " + idLink + ".\n\n" +
+                                                        "Please review the link associated with ID " + idLink + " to identify and resolve the problem.\n" +
+                                                        "If you need further assistance, feel free to contact our support team.\n\n" +
+                                                        "Thank you,\nYour Application Team";
+
+                                                SendEmail.sendMail(email, subject, body);
+
                                             }
                                         } while (links.next());
                                         //Success
-                                        new Connector().updateStatusConfig(connection, idConfig, "CRAWLED");
-                                        new Connector().writeLog(connection,
+                                        Connector.updateStatusConfig(connection, idConfig, "CRAWLED");
+                                        Connector.writeLog(connection,
                                                 "CRAWL",
                                                 "Get data from web",
                                                 idConfig,
@@ -95,15 +102,23 @@ public class Crawler {
                                 }
                             } else {
                                 // can't find the download path
-                                new Connector().updateFlagConfig(connection, idConfig, "FALSE");
-                                new Connector().writeLog(connection,
+                                Connector.updateFlagConfig(connection, idConfig, "FALSE");
+                                Connector.writeLog(connection,
                                         "CRAWL",
                                         "Get data from web",
                                         idConfig,
                                         "ERR",
                                         "Download path does not exist or failed to access path");
-                                //TODO
-                                //Còn 1 bước gửi mail và log
+                                String subject = "Error: Issue Retrieving Data from Web";
+                                String body = "Dear Admin,\n\n" +
+                                        "We encountered an error while trying to retrieve data from the web in one of our steps. The issue is as follows:\n\n" +
+                                        "Error Message: Download path does not exist or failed to access the path.\n\n" +
+                                        "Please ensure that the specified download path exists in configuration table.\n" +
+                                        "If you need further assistance, feel free to contact our support team.\n\n" +
+                                        "Thank you,\nYour Application Team";
+
+                                SendEmail.sendMail(email, subject, body);
+
                             }
                         } while (resultSet.next());
                     }
@@ -122,24 +137,20 @@ public class Crawler {
         File file = new File(file_path);
         if (!file.exists()) createFile(file_path);
 
-        try (Writer writer = new OutputStreamWriter(new FileOutputStream(file_path, true), StandardCharsets.UTF_8)) {
-            writer.write(content + "\n");
-            System.out.println("CRAWL SUCCESSED");
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+        Writer writer = new OutputStreamWriter(new FileOutputStream(file_path, true), StandardCharsets.UTF_8);
+        writer.write(content + "\n");
+        System.out.println("CRAWL SUCCESSED");
+
     }
 
-    private void createFile(String path) {
-        try (Writer writer = new OutputStreamWriter(new FileOutputStream(path), StandardCharsets.UTF_8)) {
-            System.out.println("CREATE FILE CSV SUCCESS.");
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+    private void createFile(String path) throws FileNotFoundException {
+        new OutputStreamWriter(new FileOutputStream(path), StandardCharsets.UTF_8);
+        System.out.println("CREATE FILE CSV SUCCESS.");
+
     }
 
     private String readFileAsString(String filePath) {
-        String data = "";
+        String data;
         try {
             data = new String(Files.readAllBytes(Paths.get(filePath)));
         } catch (IOException e) {
@@ -148,7 +159,7 @@ public class Crawler {
         return data;
     }
 
-    private String crawl(String url, ArrayList<String> visited) throws ParseException {
+    private String crawl(String url, ArrayList<String> visited) {
 
         Document doc = request(url, visited);
         // Lấy thông tin từ các phần tử HTML cụ thể
@@ -204,7 +215,7 @@ public class Crawler {
                         String precipitation = precipitationElement != null ? getNumber(precipitationElement.text()) : "0";
 
                         Element accumulationElement = hour.select("p:contains(Rain) span.value").first();
-                        String accumulation = "";
+                        String accumulation;
                         if (accumulationElement != null) {
                             accumulation = hour.select("p:contains(Rain) span.value").text();
                             accumulation = accumulation.trim();
@@ -286,7 +297,7 @@ public class Crawler {
                         String precipitation = precipitationElement != null ? getNumber(precipitationElement.text()) : "0";
 
                         Element accumulationElement = hour.select("p:contains(Rain) span.value").first();
-                        String accumulation = "";
+                        String accumulation;
                         if (accumulationElement != null) {
                             accumulation = hour.select("p:contains(Rain) span.value").text();
                             accumulation = accumulation.trim();
@@ -368,7 +379,7 @@ public class Crawler {
                             String precipitation = precipitationElement != null ? getNumber(precipitationElement.text()) : "0";
 
                             Element accumulationElement = hour.select("p:contains(Rain) span.value").first();
-                            String accumulation = "";
+                            String accumulation;
                             if (accumulationElement != null) {
                                 accumulation = hour.select("p:contains(Rain) span.value").text();
                                 accumulation = accumulation.trim();
@@ -420,7 +431,7 @@ public class Crawler {
         return null;
     }
 
-    public static String convert24h(String time12h) throws ParseException {
+    public static String convert24h(String time12h) {
         if (time12h.trim().length() == 4) {
             time12h = "0" + time12h;
         }

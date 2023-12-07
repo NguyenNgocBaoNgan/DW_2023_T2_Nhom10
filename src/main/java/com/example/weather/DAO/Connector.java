@@ -95,7 +95,7 @@ public class Connector {
 
     }
 
-    public void updateStatusConfig(Connection conn, String id, String status) throws SQLException {
+    public static void updateStatusConfig(Connection conn, String id, String status) throws SQLException {
         String updateQuery = "UPDATE configuration SET status = ? WHERE id = ?";
 
         try (PreparedStatement preparedStatement = conn.prepareStatement(updateQuery)) {
