@@ -77,10 +77,10 @@ public class AggregateToDataMart {
 									// ... (log event code here)
 
 									// Step 11a: Send email notification
-									SendEmail.sendMail("Không thể kết nối đến Mart.db!");
+//									SendEmail.sendMail("Không thể kết nối đến Mart.db!");
 
 									// Step 20: Close connections
-									connector.closeConnectDB(martConnection);
+									martConnection.close();
 									return; // Exit the program
 								}
 							}
@@ -92,13 +92,13 @@ public class AggregateToDataMart {
 							// ... (log information code here)
 
 							// Step 17: Send success email
-							SendEmail.sendMail("The data mart processing was successful.");
+//							SendEmail.sendMail("The data mart processing was successful.");
 
 							// Step 18: Update STATUS = PREPARED in config table
 							// ... (your SQL update query here)
 
 							// Step 19: Close connections
-							connector.closeConnectDB(stagingConnection);
+							stagingConnection.close();
 
 						} else { // Step 6.2
 							// Step 9a: Update Flag=FALSE in config table
@@ -108,7 +108,7 @@ public class AggregateToDataMart {
 							// ... (log event code here)
 
 							// Step 11a: Send email notification
-							SendEmail.sendMail("Config Database Connection Failure. Unable to connect to staging.db.");
+//							SendEmail.sendMail("Config Database Connection Failure. Unable to connect to staging.db.");
 
 							// Step 20: Close connection
 							return; // Exit the program

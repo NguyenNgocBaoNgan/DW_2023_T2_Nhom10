@@ -7,11 +7,11 @@ import java.util.Properties;
 
 
 public class SendEmail {
-	private static final String EMAIL_USERNAME = "your@gmail.com"; 
-	private static final String EMAIL_PASSWORD = "123456"; 
+	private static final String EMAIL_USERNAME = "manhha28912@gmail.com";
+	private static final String EMAIL_PASSWORD = "iptf apoz yxse xpwd";
 	private static final String SMTP_HOST = "smtp.gmail.com"; 
 	
-	public static void sendMail(String message) {
+	public static void sendMail(String email,String title,String message) {
 	    // Cài đặt thông tin người gửi
 	    Properties properties = new Properties();
 	    properties.put("mail.smtp.host", SMTP_HOST);
@@ -31,8 +31,8 @@ public class SendEmail {
 	        // Tạo đối tượng Message
 	        Message mailMessage = new MimeMessage(session);
 	        mailMessage.setFrom(new InternetAddress(EMAIL_USERNAME)); // Địa chỉ người gửi
-	        mailMessage.setRecipients(Message.RecipientType.TO, InternetAddress.parse("recipient@example.com")); // Địa chỉ người nhận
-	        mailMessage.setSubject("Thông báo từ ứng dụng"); // Tiêu đề email
+	        mailMessage.setRecipients(Message.RecipientType.TO, InternetAddress.parse(email)); // Địa chỉ người nhận
+	        mailMessage.setSubject(title); // Tiêu đề email
 	        mailMessage.setText(message); // Nội dung email
 
 	        // Gửi email
@@ -42,6 +42,10 @@ public class SendEmail {
 	        e.printStackTrace();
 	        System.out.println("Gửi email thất bại. Lỗi: " + e.getMessage());
 	    }
+	}
+
+	public static void main(String[] args) {
+		sendMail("manhha584224@gmail.com", "Test mail","Đang kiểm tra mail");
 	}
 
 }
