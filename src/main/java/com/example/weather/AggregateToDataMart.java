@@ -27,25 +27,30 @@ public class AggregateToDataMart {
     public void aggregateToMart() {
         // Connect to control.db
         try (Connection configConnection = Connector.getControlConnection()) {
+            //      Kiểm tra kết nối có thành công hay không?
             if (configConnection.isValid(5)) {
                 // Lấy dữ liệu có trong bảng config Flag = TRUE Status = AGGRIGATE_LOADED
                 ResultSet resultSet = Connector.getResultSetWithConfigFlags(configConnection, "TRUE", "AGGRIGATE_LOADED");
 
                 String idConfig = resultSet.getString("id").trim();
+                //                Kiểm tra còn dòng config nào chưa chạy không?
                 while (resultSet.next()) {
                     //  Update status DATAMART_LOAD config table
                     Connector.updateStatusConfig(configConnection, idConfig, "DATAMART_LOAD");
                     //  Connect to staging.db
                     try (Connection stagingConnection = Connector.getConnection(HOSTNAME, STAGING_DB_NAME, USERNAME, PASSWORD)) {
+                        //      Kiểm tra kết nối có thành công hay không?
                         if (stagingConnection.isValid(5)) {
                             // Connect to mart.db
                             try (Connection martConnection = Connector.getConnection(HOSTNAME, MART_DB_NAME, USERNAME, PASSWORD)) {
+                                //      Kiểm tra kết nối có thành công hay không?
                                 if (martConnection.isValid(5)) {
                                     // Get data from aggregate table
                                     List<String> sqlGetData = Files.readAllLines(Path.of("getDataFromAggregate.sql"));
                                     String selectDataQuery = String.join(" ", sqlGetData);
                                     PreparedStatement preparedStatement = stagingConnection.prepareStatement(selectDataQuery);
                                     ResultSet resultSet_agg = preparedStatement.executeQuery();
+//                                    Kiểm tra còn dòng dữ liệu nào trong aggregate table chưa chạy không?
                                     while (resultSet_agg.next()) {
                                         // Transfer data to weather_hours_records
                                         String insertSql = Connector.readFileAsString("insert_weather_hour_records.sql");
@@ -141,6 +146,8 @@ public class AggregateToDataMart {
                                     }
 //									đóng kết nối mart db
                                     martConnection.close();
+                                    //  Close staging db connections
+                                    stagingConnection.close();
                                 } else {
                                     // Update Flag=FALSE in config table
                                     Connector.updateFlagDataLinks(martConnection, idConfig, "FALSE");
@@ -171,38 +178,6 @@ public class AggregateToDataMart {
                                 }
                             }
 
-                            // Log information
-                            Connector.writeLog(configConnection,
-                                    "AGGREGATE_TO_DATAMART",
-                                    "Loading data from csv files to records_staging table",
-                                    idConfig,
-                                    "SUCCESS",
-                                    "Loading data from csv files to records_staging table successfully!");
-
-                            // Send success email
-                            String toEmail = resultSet.getString("error_to_email");
-
-                            String subject = "Successful Data Mart Processing";
-
-                            String emailContent = "Dear Admin,\n\n"
-                                    + "We are pleased to inform you that the data mart processing has been completed successfully. "
-                                    + "All data has been processed and updated in the Mart.db database without any issues.\n\n"
-                                    + "Summary of the Process:\n"
-                                    + "- Source: [Your Source]\n"  // Replace with your actual data source
-                                    + "- Destination: Mart.db\n"
-                                    + "- Status: Success\n\n"
-                                    + "If you have any questions or require further information, please feel free to contact our support team.\n\n"
-                                    + "Thank you for your continued use of our services.\n\n"
-                                    + "Best Regards,\nYour Application Team";
-
-                            SendEmail.sendMail(toEmail, subject, emailContent);
-
-                            // Update STATUS = PREPARED in config table
-                            Connector.updateStatusConfig(configConnection, idConfig, "PREPARED");
-
-                            //  Close staging db connections
-                            stagingConnection.close();
-
                         } else {
                             // Update Flag=FALSE in config table
                             Connector.updateFlagDataLinks(configConnection, idConfig, "FALSE");
@@ -232,6 +207,34 @@ public class AggregateToDataMart {
                         }
                     }
                 }
+                // Log information
+                Connector.writeLog(configConnection,
+                        "AGGREGATE_TO_DATAMART",
+                        "Loading data from csv files to records_staging table",
+                        idConfig,
+                        "SUCCESS",
+                        "Loading data from csv files to records_staging table successfully!");
+
+                // Send success email
+                String toEmail = resultSet.getString("error_to_email");
+
+                String subject = "Successful Data Mart Processing";
+
+                String emailContent = "Dear Admin,\n\n"
+                        + "We are pleased to inform you that the data mart processing has been completed successfully. "
+                        + "All data has been processed and updated in the Mart.db database without any issues.\n\n"
+                        + "Summary of the Process:\n"
+                        + "- Source: [Your Source]\n"  // Replace with your actual data source
+                        + "- Destination: Mart.db\n"
+                        + "- Status: Success\n\n"
+                        + "If you have any questions or require further information, please feel free to contact our support team.\n\n"
+                        + "Thank you for your continued use of our services.\n\n"
+                        + "Best Regards,\nYour Application Team";
+
+                SendEmail.sendMail(toEmail, subject, emailContent);
+
+                // Update STATUS = PREPARED in config table
+                Connector.updateStatusConfig(configConnection, idConfig, "PREPARED");
 
             }
 //            Close connection control db

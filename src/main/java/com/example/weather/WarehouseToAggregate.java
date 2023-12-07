@@ -28,9 +28,10 @@ public class WarehouseToAggregate {
             if (configConnection.isValid(5)) {
                 // Lấy dữ liệu có trong bảng config Flag = TRUE Status = PREPARED
                 ResultSet resultSet = Connector.getResultSetWithConfigFlags(configConnection, "TRUE", "PREPARED");
-                String idConfig = resultSet.getString("id").trim();
+                String idConfig = "";
 //                Kiểm tra còn dòng config nào chưa chạy không?
                 while (resultSet.next()) {
+                    idConfig = resultSet.getString("id").trim();
                     // Cập nhật status AGGREGATE_LOAD config table
                     Connector.updateStatusConfig(configConnection, idConfig, "AGGREGATE_LOAD");
 
@@ -38,14 +39,15 @@ public class WarehouseToAggregate {
                     try (Connection stagingConnection = Connector.getConnection(HOSTNAME, STAGING_DB_NAME, USERNAME, PASSWORD)) {
                         //      Kiểm tra kết nối có thành công hay không?
                         if (stagingConnection.isValid(5)) {
-                            //Create aggregate table and transfer data from records to aggregate
+                            //Delete Aggregate then create aggregate table and transfer data from records to aggregate
                             List<String> sqlLines2 = Files.readAllLines(Path.of("insert_data_Aggregate.sql"));
                             String insertQuery = String.join(" ", sqlLines2);
                             PreparedStatement preparedStatement = configConnection.prepareStatement(insertQuery);
                             preparedStatement.executeUpdate();
                             // Update config table status AGGREGATE_LOADED
                             Connector.updateStatusConfig(configConnection, idConfig, "AGGREGATE_LOADED");
-
+//                        Đóng kết nối stagging.db
+                            stagingConnection.close();
                         } else {
                             //  Update config table status FALSE
                             Connector.updateFlagDataLinks(configConnection, idConfig, "FALSE");
@@ -71,38 +73,38 @@ public class WarehouseToAggregate {
 
                             SendEmail.sendMail(toEmail, subject, emailContent);
                         }
-//                        Đóng kết nối stagging.db
-                        stagingConnection.close();
-                        // thêm thông tin (thời gian, kết quả ) vào bảng log
-                        Connector.writeLog(configConnection,
-                                "WAREHOUSE_TO_AGGREGATE",
-                                "Load data from warehouse to aggregate table",
-                                idConfig,
-                                "SUCCESS",
-                                "Load data from warehouse to aggregate table successfully!");
 
-                        // Gửi mail thông báo và cập nhật thành công
-                        String toEmail = resultSet.getString("success_to_email");
-
-                        String subject = "Successful Data Load from Warehouse to Aggregate Table";
-
-                        String emailContent = "Dear Admin,\n\n"
-                                + "We are pleased to inform you that the process of loading data from the warehouse to the aggregate table has been completed successfully. "
-                                + "All data has been aggregated and updated in the target table without any issues.\n\n"
-                                + "Summary of the Process:\n"
-                                + "- Source: Warehouse\n"
-                                + "- Destination: Aggregate Table\n"
-                                + "- Status: Success\n\n"
-                                + "If you have any questions or require further information, please feel free to contact our support team.\n\n"
-                                + "Thank you for your continued use of our services.\n\n"
-                                + "Best Regards,\nYour Application Team";
-
-                        SendEmail.sendMail(toEmail, subject, emailContent);
 
                     } catch (IOException e) {
                         throw new RuntimeException(e);
                     }
                 }
+                // thêm thông tin (thời gian, kết quả ) vào bảng log
+                Connector.writeLog(configConnection,
+                        "WAREHOUSE_TO_AGGREGATE",
+                        "Load data from warehouse to aggregate table",
+                        idConfig,
+                        "SUCCESS",
+                        "Load data from warehouse to aggregate table successfully!");
+
+                // Gửi mail thông báo và cập nhật thành công
+                String toEmail = resultSet.getString("success_to_email");
+
+                String subject = "Successful Data Load from Warehouse to Aggregate Table";
+
+                String emailContent = "Dear Admin,\n\n"
+                        + "We are pleased to inform you that the process of loading data from the warehouse to the aggregate table has been completed successfully. "
+                        + "All data has been aggregated and updated in the target table without any issues.\n\n"
+                        + "Summary of the Process:\n"
+                        + "- Source: Warehouse\n"
+                        + "- Destination: Aggregate Table\n"
+                        + "- Status: Success\n\n"
+                        + "If you have any questions or require further information, please feel free to contact our support team.\n\n"
+                        + "Thank you for your continued use of our services.\n\n"
+                        + "Best Regards,\nYour Application Team";
+
+                SendEmail.sendMail(toEmail, subject, emailContent);
+
             }
 //                Đóng kết nối control.db
             configConnection.close();

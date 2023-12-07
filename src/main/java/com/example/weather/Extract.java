@@ -31,9 +31,11 @@ public class Extract {
                 // Lấy dữ liệu bảng config có Flag = TRUE Status = CRAWLED
                 ResultSet resultSet = Connector.getResultSetWithConfigFlags(configConnection, "TRUE", "CRAWLED");
 //              Kiểm tra còn dòng config nào status= CRAWLED và FLAG = TRUE không?
+                String csv_folder_path = "";
+                String idConfig = "";
                 while (resultSet.next()) {
-                    String idConfig = resultSet.getString("id").trim();
-                    String csv_folder_path = resultSet.getString("download_path");
+                     csv_folder_path = resultSet.getString("download_path");
+                     idConfig = resultSet.getString("id").trim();
                     // Cập nhật status EXTRACTING config table
                     Connector.updateStatusConfig(configConnection, idConfig, "EXTRACTING");
                     // Kết nối với wearther_warehouse db
@@ -55,6 +57,8 @@ public class Extract {
                                 processAndInsertData(stagingConnection, csvFiles);
 //                          Cập nhật status EXTRACTED trong wearther_warehouse.db
                                 Connector.updateStatusConfig(configConnection, idConfig, "EXTRACTED");
+  //                            Đóng kết nối wearther_warehouse.db
+                                stagingConnection.close();
                             } else {
                                 // Cập nhật status ERR config table
                                 Connector.updateStatusConfig(configConnection, idConfig, "ERR");
@@ -81,10 +85,8 @@ public class Extract {
                                 SendEmail.sendMail(toEmail, subject, emailContent);
 
                             }
-//                            Đóng kết nối wearther_warehouse.db
-                            stagingConnection.close();
-                            // Xóa tất cả các tệp tin CSV sau khi xử lý xong
-                            clearFolder(csv_folder_path);
+
+
                         } else {
                             // Cập nhật Flag=FALSE trong bảng config
                             Connector.updateFlagDataLinks(configConnection, idConfig, "FALSE");
@@ -117,7 +119,8 @@ public class Extract {
                     }
 
                 }
-
+                // Xóa tất cả các tệp tin CSV sau khi xử lý xong
+                clearFolder(csv_folder_path);
             }
             // Đóng kết nối control.db
             configConnection.close();
