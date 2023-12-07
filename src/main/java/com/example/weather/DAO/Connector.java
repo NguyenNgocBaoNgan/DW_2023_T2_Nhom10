@@ -3,19 +3,16 @@ package com.example.weather.DAO;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths; 
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.PreparedStatement;
-import java.sql.SQLException; 
+import java.nio.file.Paths;
+import java.sql.*;
 import java.util.Properties;
 
 public class Connector {
 
-    private String username;
-    private String password;
+    private static String username;
+    private static String password;
 
-    private String connectionURL;
+    private static String connectionURL;
 
     public static void main(String[] args) throws SQLException {
         new Connector().getControlConnection();
@@ -42,7 +39,7 @@ public class Connector {
         }
     }
  
-    public Connection getControlConnection() throws SQLException {
+    public static Connection getControlConnection() throws SQLException {
  
         //Tạo đối tượng Connection
         Connection conn = null;
@@ -138,7 +135,7 @@ public class Connector {
         }
     }
  
-      static String readFileAsString(String filePath)  {
+      public static String readFileAsString(String filePath)  {
         String data ;
           try {
               data = new String(Files.readAllBytes(Paths.get(filePath)));

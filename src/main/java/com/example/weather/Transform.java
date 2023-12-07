@@ -17,7 +17,7 @@ public class Transform {
 
     public void startTransform() {
         Connector connection = new Connector();
-        try (Connection configConnection = connection.getControlConnection()) {
+        try (Connection configConnection = Connector.getControlConnection()) {
             String getConfig = Connector.readFileAsString("get_config.sql");
             try (PreparedStatement preparedStatement = configConnection.prepareStatement(getConfig)) {
                 preparedStatement.setString(1, "TRUE");//flag
