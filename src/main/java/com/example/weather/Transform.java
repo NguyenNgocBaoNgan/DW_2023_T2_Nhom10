@@ -4,8 +4,12 @@ import com.example.weather.DAO.Connector;
 
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.Statement;
 import java.util.Properties;
 
 public class Transform {
@@ -22,17 +26,20 @@ public class Transform {
     String FILE_LOCATION;
 
     public void startTransform() {
-        Connector connection= new Connector();
+        Connector connection = new Connector();
         try (Connection configConnection = connection.getControlConnection()) {
-            String sqlGetDownloadPath = "SELECT * FROM configuration WHERE  flag = 'TRUE'  AND STATUS = 'EXTRACTED'";
-            try (PreparedStatement preparedStatement = configConnection.prepareStatement(sqlGetDownloadPath)) {
+            String getConfig = readFileAsString("get_config.sql");
+            try (PreparedStatement preparedStatement = configConnection.prepareStatement(getConfig)) {
+                preparedStatement.setString(1, "TRUE");//flag
+                preparedStatement.setString(2, "EXTRACTED");//status
                 try (ResultSet resultSet = preparedStatement.executeQuery()) {
                     if (resultSet.isBeforeFirst()) {
-                        while (resultSet.next()) {
-
+                        do {
+                            resultSet.next();
                             String idConfig = resultSet.getString("id").trim();
-
                             FILE_LOCATION = resultSet.getString("folder_name");
+
+                            System.out.println(resultSet);
                             if (Files.exists(Paths.get(FILE_LOCATION)) && Files.isDirectory(Paths.get(FILE_LOCATION))) {
                                 connection.updateStatusConfig(configConnection, idConfig, "TRANSFORMING");
                                 //todo cập nhật hostname trong db
@@ -41,45 +48,66 @@ public class Transform {
                                 String username = resultSet.getString("WH_source_username");
                                 String password = resultSet.getString("WH_source_password");
                                 System.out.println(dbName + " " + username + " " + password);
-                                try (Connection WHConnection = connection.getConnection(hostName, dbName, username, password)) {
+                                try (Connection WHConnection = Connector.getConnection(hostName, dbName, username, password)) {
 
-                                    try {
-                                        String sqlTransform = readFileAsString(FILE_LOCATION+"\\transform.sql");
-                                        Statement statement = WHConnection.createStatement();
-                                        statement.execute(sqlTransform);
 
-                                        String sqlCheckDim = "SELECT * FROM description_dim WHERE name_vi IS NULL OR name_= ''";
-                                        try (PreparedStatement preparedStatement1 = WHConnection.prepareStatement(sqlCheckDim)) {
-                                            try (ResultSet des = preparedStatement1.executeQuery()) {
-
-                                                while (des.next()) {
-                                                  statement.execute("UPDATE description_dim SET name_vi = name_en WHERE id = " + des.getString(1));
-                                                    connection.updateStatusConfig(configConnection, idConfig, "TRANSFORMED");
-                                                    connection.writeLog(configConnection,
-                                                            "UPDATE description_dim TABLE ",
-                                                            "Update description_dim table in WH",
-                                                            idConfig,
-                                                            "WARNING",
-                                                            "Description is updated, please check and fix vietnamese name as soon as possible");
-                                                  //gửi mail
-                                                }
-
+                                        if (Files.exists(Path.of((FILE_LOCATION + "\\transform_data.sql")))) {
+                                            String sqlTransform = readFileAsString(FILE_LOCATION + "\\transform_data.sql");
+                                            Statement statement = WHConnection.createStatement();
+                                            // Chia script thành các câu lệnh riêng biệt
+                                            String[] commands = sqlTransform.split(";");
+                                            for (String command : commands) {
+                                               statement.execute(command);
                                             }
+                                            if (Files.exists(Path.of((FILE_LOCATION + "\\check_description_dim.sql")))) {
+                                                String check_description_dim = readFileAsString(FILE_LOCATION + "\\check_description_dim.sql");
+                                                statement.execute(check_description_dim);
+                                                Connector.writeLog(configConnection,
+                                                        "UPDATE description_dim TABLE ",
+                                                        "Update description_dim table in WH",
+                                                        idConfig,
+                                                        "WARNING",
+                                                        "Description is updated, please check and fix vietnamese name as soon as possible");
+
+                                            } else {
+                                                // can't find check_description_dim.sql
+                                                Connector.writeLog(configConnection,
+                                                        "TRANSFORM",
+                                                        "Check description_dim table in WH",
+                                                        idConfig,
+                                                        "WARNING",
+                                                        "Sql file check_description_dim.sql  does not exist or failed to access path");
+                                                //TODO
+                                                //Còn 1 bước gửi mail và log
+                                            }
+
+
+                                            connection.updateStatusConfig(configConnection, idConfig, "TRANSFORMED");
+                                            Connector.writeLog(configConnection,
+                                                    "TRANSFORM",
+                                                    "Clean data",
+                                                    idConfig,
+                                                    "SUCCESS",
+                                                    "");
+                                        } else {
+                                            // can't find transform_data.sql
+                                            Connector.updateFlagConfig(configConnection, idConfig, "FALSE");
+                                            Connector.writeLog(configConnection,
+                                                    "TRANSFORM",
+                                                    "Clean data",
+                                                    idConfig,
+                                                    "ERR",
+                                                    "Sql file transform_data.sql does not exist or failed to access path");
+                                            //TODO
+                                            //Còn 1 bước gửi mail và log
                                         }
-                                        connection.updateStatusConfig(configConnection, idConfig, "TRANSFORMED");
-                                        connection.writeLog(configConnection,
-                                                "TRANSFORM",
-                                                "Clean data",
-                                                idConfig,
-                                                "SUCCESS",
-                                                "");
-                                    } catch (Exception ex) {
-                                        ex.printStackTrace();
-                                    }
+
+                                        WHConnection.close();
+
                                 } catch (Exception ex) {
                                     //Can't connect to warehouse database
-                                    connection.updateFlagConfig(configConnection, idConfig, "FALSE");
-                                    connection.writeLog(configConnection,
+                                    Connector.updateFlagConfig(configConnection, idConfig, "FALSE");
+                                    Connector.writeLog(configConnection,
                                             "TRANSFORM",
                                             "Clean data",
                                             idConfig,
@@ -92,8 +120,8 @@ public class Transform {
 
                             } else {
                                 // can't find the folder path
-                                connection.updateFlagConfig(configConnection, idConfig, "ERR");
-                                connection.writeLog(configConnection,
+                                Connector.updateFlagConfig(configConnection, idConfig, "FALSE");
+                                Connector.writeLog(configConnection,
                                         "TRANSFORM",
                                         "Clean data",
                                         idConfig,
@@ -102,22 +130,17 @@ public class Transform {
                                 //TODO
                                 //Còn 1 bước gửi mail và log
                             }
-
-
-                        }
-                    } else {
-                        System.out.println("Không có config hơp lệ");
+                        } while (resultSet.next());
                     }
-                } catch (Exception e) {
-                    throw new RuntimeException(e);
+                } catch (Exception ignored) {
                 }
             }
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
+            configConnection.close();
+        } catch (Exception ignored) {
         }
     }
 
-    private static String readFileAsString(String filePath) throws Exception {
+    private   String readFileAsString(String filePath) throws Exception {
         String data = "";
         data = new String(Files.readAllBytes(Paths.get(filePath)));
         return data;

@@ -1,0 +1,1 @@
+SELECT * FROM configuration WHERE  flag = ? AND STATUS = ?
