@@ -76,26 +76,32 @@ public class LoadStagging_Warehouse {
                 updateConfigStatus(controlConnection, configId, "LOADING", flag);
 
                 // Kiểm tra kết nối với staging database
-                Connection stagingConnection = Connector.getConnection("localhost:3306", "weather_warehouse", "root", "");
+                Connection whConnection = Connector.getConnection("localhost:3306", "weather_warehouse", "root", "");
 
-               // Connection stagingConnection = connectToDatabase(STAGING_DB_URL, STAGING_DB_USERNAME, STAGING_DB_PASSWORD);
+               // Connection whConnection = connectToDatabase(STAGING_DB_URL, STAGING_DB_USERNAME, STAGING_DB_PASSWORD);
 
             // Lấy dữ liệu từ bảng stagging
 
-                if (stagingConnection == null) {
-                    System.out.println("Không thể kết nối với staging database");
+                if (whConnection == null) {
+                    System.out.println("Không thể kết nối với weather_warehouse database");
 
                     // Cập nhật Flag=FALSE trong bảng config
                     Connector.updateFlagConfig(controlConnection,String.valueOf(configId),"FALSE");
 //                    updateFlagInConfig(controlConnection, configId, "FALSE");
 
                     // Ghi vào log sự kiện cập nhật flag
-                    Connector.writeLog(controlConnection,"Update Flag to FALSE","Connection to Staging DB failed", String.valueOf(configId),"ERROR","Can't connect to DB");
+                    Connector.writeLog(controlConnection,"Data Loading","Connection to weather_warehouse failed", String.valueOf(configId),"ERROR","Can't connect to DB");
                     //logEvent(controlConnection, configId, "Update Flag to FALSE", "Connection to Staging DB failed", "ERROR");
 
                     // Gửi mail thông báo
 //                    SendEmail.sendMail("Config ID " + configId + " không kết nối với staging database");
-                    
+                    SendEmail.sendMail("nganluvjb@gmail.com","Important Update: Action Required", "Dear User,\n\n"
+                            + "We wanted to inform you about an important update that requires your attention.\n"
+                            + "Please review the details below:\n\n"
+                            + "Update: [Details of the update]\n\n"
+                            + "Thank you for your cooperation.\n"
+                            + "Best regards,\n"
+                            + "Ngan" );
 
                     // Đóng kết nối với control database và kết thúc
                     closeConnection(controlConnection);
@@ -104,27 +110,26 @@ public class LoadStagging_Warehouse {
 
 
                 //Load dữ liệu từ staging sang record
-                transferData(stagingConnection);
+                transferData(whConnection);
 
                //check dữ liệu và gán is_expired = True
-                updateIsExpired(stagingConnection);
-                
-//                int dataCount = getDataCount(stagingConnection, stagingData.getString("date_forcast"), stagingData.getString("time_forcast"));
-//                if (dataCount > 0) {
-//                    // Nếu dữ liệu đã tồn tại, thì cập nhật cột Is_expired = TRUE
-//                    updateDataExpired(stagingConnection, recordData.getString("date_forcast"), recordData.getString("time_forcast"));
-//                } else {
-//                    // Nếu dữ liệu chưa tồn tại, thì chuyển dữ liệu từ bảng records_staging sang bảng records
-//                    insertData(stagingConnection, configData.getString("date_forcast"), configData.getString("time_forcast"), configData.getDouble("temperature"), configData.getDouble("humidity"), configData.getDouble("pressure"));
-//                }
-
-                // Đóng kết nối với staging database
-                closeConnection(stagingConnection);
+                updateIsExpired(whConnection);
 
                 // Cập nhật trạng thái của config thành LOADED
-                updateConfigStatus(controlConnection, configId, "LOADED", flag);
+                Connector.updateStatusConfig(controlConnection,String.valueOf(configId),"LOADED");
+                //updateConfigStatus(controlConnection, configId, "", flag);
+                //Viết log
+                Connector.writeLog(controlConnection,"Data Loading","Loaded data to warehouse table", String.valueOf(configId),"Success","No errors");
+                //Cập nhật status Config là Prepared
+                Connector.updateStatusConfig(controlConnection,String.valueOf(configId),"PREPARED");
+
+                // Đóng kết nối với staging database
+                closeConnection(whConnection);
+
+
             }
         }
+
 
         // Đóng kết nối với control database
         closeConnection(controlConnection);
@@ -195,18 +200,6 @@ public class LoadStagging_Warehouse {
         }
     }
 
-//    private static void printResultSet(ResultSet resultSet) throws SQLException {
-//        ResultSetMetaData metaData = resultSet.getMetaData();
-//        int columnCount = metaData.getColumnCount();
-//
-//        while (resultSet.next()) {
-//            for (int i = 1; i <= columnCount; i++) {
-//                Object value = resultSet.getObject(i);
-//                System.out.print(value + "\t");
-//            }
-//            System.out.println();
-//        }
-//    }
  // Function to execute a query and return the result set
     private static ResultSet executeQuery(Connection connection, String sql) throws SQLException {
         PreparedStatement statement = connection.prepareStatement(sql);
