@@ -37,21 +37,19 @@ public class Connector {
         return conn;
     }
 
-    public Connection getWHConnection(String hostName, String dbName, String username, String password) throws SQLException {
+    public static Connection getConnection(String hostName, String dbName, String username, String password) throws SQLException {
+
         //Tạo đối tượng Connection
         Connection conn = null;
         try {
             conn = DriverManager.getConnection("jdbc:mysql://" + hostName + "/" + dbName, username, password);
-            System.out.println("Kết nối staging db thành công");
+            System.out.println("Kết nối " + dbName + " db thành công");
         } catch (SQLException e) {
             e.printStackTrace();
         }
         return conn;
     }
 
-    public static void main(String[] args) throws SQLException {
-        new Connector().getControlConnection();
-    }
 
     public void updateFlagDataLinks(Connection conn, String id, String flag) throws SQLException {
         String updateQuery = "UPDATE data_link SET flag = ? WHERE id = ?";
@@ -75,7 +73,7 @@ public class Connector {
 
     }
 
-    public void updateFlagConfig(Connection conn, String id, String flag) throws SQLException {
+    public static void updateFlagConfig(Connection conn, String id, String flag) throws SQLException {
         String updateQuery = "UPDATE configuration SET flag = ? WHERE id = ?";
 
         try (PreparedStatement preparedStatement = conn.prepareStatement(updateQuery)) {
@@ -118,7 +116,7 @@ public class Connector {
         }
     }
 
-    public void writeLog(Connection conn, String activityType, String description, String configId, String status, String errorDetail) throws SQLException {
+    public static void writeLog(Connection conn, String activityType, String description, String configId, String status, String errorDetail) throws SQLException {
         String insertQuery = "INSERT INTO logs (activity_type, description, config_id, status, error_detail) VALUES (?, ?, ?, ?, ?)";
 
         try (PreparedStatement preparedStatement = conn.prepareStatement(insertQuery)) {

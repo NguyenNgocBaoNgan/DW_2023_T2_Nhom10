@@ -41,7 +41,8 @@ public class Transform {
                                 String username = resultSet.getString("WH_source_username");
                                 String password = resultSet.getString("WH_source_password");
                                 System.out.println(dbName + " " + username + " " + password);
-                                try (Connection WHConnection = connection.getWHConnection(hostName, dbName, username, password)) {
+                                try (Connection WHConnection = connection.getConnection(hostName, dbName, username, password)) {
+
                                     try {
                                         String sqlTransform = readFileAsString(FILE_LOCATION+"\\transform.sql");
                                         Statement statement = WHConnection.createStatement();
