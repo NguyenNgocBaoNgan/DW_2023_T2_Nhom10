@@ -24,39 +24,41 @@ public class Extract {
     }
 
     public void extract() throws SQLException {
-
+//        Kết nối control.db
         try (Connection configConnection = Connector.getControlConnection();) {
+//      Kiểm tra kết nối có thành công hay không?
             if (configConnection.isValid(5)) {
                 // Lấy dữ liệu bảng config có Flag = TRUE Status = CRAWLED
                 ResultSet resultSet = Connector.getResultSetWithConfigFlags(configConnection, "TRUE", "CRAWLED");
-
+//              Kiểm tra còn dòng config nào status= CRAWLED và FLAG = TRUE không?
                 while (resultSet.next()) {
                     String idConfig = resultSet.getString("id").trim();
                     String csv_folder_path = resultSet.getString("download_path");
                     // Cập nhật status EXTRACTING config table
                     Connector.updateStatusConfig(configConnection, idConfig, "EXTRACTING");
-                    // Kết nối với staging db
+                    // Kết nối với wearther_warehouse db
                     try (Connection stagingConnection = Connector.getConnection(HOSTNAME, STAGING_DB_NAME, USERNAME, PASSWORD)) {
+                        //      Kiểm tra kết nối có thành công hay không?
                         if (stagingConnection.isValid(5)) {
                             // Truncate bảng records_staging
                             List<String> sqlLines = Files.readAllLines(Path.of("truncate_records_staging.sql"));
                             String truncateQuery = String.join(" ", sqlLines);
                             PreparedStatement preparedStatement = configConnection.prepareStatement(truncateQuery);
                             preparedStatement.executeUpdate();
-                            // Xử lý CSV
                             // Lấy danh sách các tệp tin CSV trong thư mục
                             List<Path> csvFiles = Files.list(Paths.get(csv_folder_path))
                                     .filter(path -> path.toString().endsWith(".csv"))
                                     .collect(Collectors.toList());
+//                            Kiểm tra xem có file csv trong thư mục hay không?
                             if (!csvFiles.isEmpty()) {
                                 // Load dữ liệu từ file csv với địa chỉ trong config vào bảng records_staging
                                 processAndInsertData(stagingConnection, csvFiles);
-                                //Cập nhật status EXTRACTED trong config.db
+                                //Cập nhật status EXTRACTED trong wearther_warehouse.db
                                 Connector.updateStatusConfig(configConnection, idConfig, "EXTRACTED");
                             } else {
-                                //          Cập nhật status ERR config table
+ //                          Cập nhật status ERR config table
                                 Connector.updateStatusConfig(configConnection, idConfig, "ERR");
-//                                //			thêm thông tin (thời gian, kết quả ) vào bảng log
+//			                thêm thông tin (thời gian, kết quả ) vào bảng log
                                 Connector.writeLog(configConnection,
                                         "EXTRACT",
                                         "Loading data from csv files to records_staging table",
@@ -64,7 +66,7 @@ public class Extract {
                                         "ERR",
                                         "CSV files not exist");
 
-                                //			Gửi mail thông báo lỗi
+//			                Gửi mail thông báo lỗi
                                 String toEmail = resultSet.getString("error_to_email");
                                 String subject = "Error Encountered During Data Loading Process";
 
@@ -79,6 +81,10 @@ public class Extract {
                                 SendEmail.sendMail(toEmail, subject, emailContent);
 
                             }
+//                            Đóng kết nối wearther_warehouse.db
+                            stagingConnection.close();
+                            // Xóa tất cả các tệp tin CSV sau khi xử lý xong
+                            clearFolder(csv_folder_path);
                         } else {
                             // Cập nhật Flag=FALSE trong bảng config
                             Connector.updateFlagDataLinks(configConnection, idConfig, "FALSE");
@@ -89,14 +95,14 @@ public class Extract {
                                     idConfig,
                                     "ERR",
                                     "Cant connect to Staging DB");
-                            // Gửi mail thông báo config không kết nối với staging.db được
+                            // Gửi mail thông báo config không kết nối với wearther_warehouse.db được
                             String toEmail = resultSet.getString("error_to_email");
-                            String subject = "Error Connecting to Staging Database";
+                            String subject = "Error Connecting to wearther_warehouse Database";
 
                             String emailContent = "Dear User,\n\n"
-                                    + "We are experiencing difficulties connecting to the Staging Database for the data loading process. "
+                                    + "We are experiencing difficulties connecting to the wearther_warehouse Database for the data loading process. "
                                     + "Unfortunately, the connection attempt has failed with the following error:\n\n"
-                                    + "Error Message: Can't connect to Staging DB\n\n"
+                                    + "Error Message: Can't connect to wearther_warehouse DB\n\n"
                                     + "Our technical team is actively investigating the issue and working towards a swift resolution. "
                                     + "We appreciate your patience and understanding during this time.\n\n"
                                     + "Thank you for your cooperation.\n\n"
@@ -106,18 +112,12 @@ public class Extract {
 
                         }
 
-                        // Đóng kết nối records_stagging.db
-                        stagingConnection.close();
-                        // Xóa tất cả các tệp tin CSV sau khi xử lý xong
-                        clearFolder(csv_folder_path);
                     } catch (IOException e) {
                         throw new RuntimeException(e);
                     }
 
                 }
 
-            } else {
-                System.out.println("Database connection failed.");
             }
             // Đóng kết nối control.db
             configConnection.close();
@@ -134,7 +134,6 @@ public class Extract {
             int lineCount = 0;
 
             while ((line = reader.readLine()) != null && lineCount < 24) {
-                // Skip the last 2 lines
                 String[] data = line.split(";");
 
                 String[] city_nameStrings = data[0].split(", ");
@@ -160,7 +159,6 @@ public class Extract {
                 String insertQuery = String.join(" ", sqlLines);
 
                 try (PreparedStatement preparedStatement = connection.prepareStatement(insertQuery)) {
-                    // Set parameter values
                     preparedStatement.setString(1, city_name);
                     preparedStatement.setString(2, time_record);
                     preparedStatement.setString(3, date_record);
@@ -177,9 +175,7 @@ public class Extract {
                     preparedStatement.setString(14, precipitation);
                     preparedStatement.setString(15, accumulation);
 
-                    // Execute the query
                     preparedStatement.executeUpdate();
-//							========================================= file sql ==============================
                 }
                 lineCount++;
 

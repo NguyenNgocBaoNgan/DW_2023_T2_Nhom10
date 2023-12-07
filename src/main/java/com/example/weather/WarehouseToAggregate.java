@@ -24,18 +24,19 @@ public class WarehouseToAggregate {
     public void whToAggregate() throws SQLException {
         // Step 1: Connect to control.db
         try (Connection configConnection = Connector.getControlConnection()) {
-            if (configConnection.isValid(5)) { // Step 2
+            //      Kiểm tra kết nối có thành công hay không?
+            if (configConnection.isValid(5)) {
                 // Lấy dữ liệu có trong bảng config Flag = TRUE Status = PREPARED
                 ResultSet resultSet = Connector.getResultSetWithConfigFlags(configConnection, "TRUE", "PREPARED");
-
-
                 String idConfig = resultSet.getString("id").trim();
+//                Kiểm tra còn dòng config nào chưa chạy không?
                 while (resultSet.next()) {
                     // Cập nhật status AGGREGATE_LOAD config table
                     Connector.updateStatusConfig(configConnection, idConfig, "AGGREGATE_LOAD");
 
-//				 // Step 5: Connect to wearther_warehouse.db
+//				 // Connect to wearther_warehouse.db
                     try (Connection stagingConnection = Connector.getConnection(HOSTNAME, STAGING_DB_NAME, USERNAME, PASSWORD)) {
+                        //      Kiểm tra kết nối có thành công hay không?
                         if (stagingConnection.isValid(5)) {
                             //Create aggregate table and transfer data from records to aggregate
                             List<String> sqlLines2 = Files.readAllLines(Path.of("insert_data_Aggregate.sql"));
@@ -72,14 +73,13 @@ public class WarehouseToAggregate {
                         }
 //                        Đóng kết nối stagging.db
                         stagingConnection.close();
-
                         // thêm thông tin (thời gian, kết quả ) vào bảng log
                         Connector.writeLog(configConnection,
                                 "WAREHOUSE_TO_AGGREGATE",
                                 "Load data from warehouse to aggregate table",
                                 idConfig,
                                 "SUCCESS",
-                                "");
+                                "Load data from warehouse to aggregate table successfully!");
 
                         // Gửi mail thông báo và cập nhật thành công
                         String toEmail = resultSet.getString("success_to_email");
@@ -107,7 +107,7 @@ public class WarehouseToAggregate {
 //                Đóng kết nối control.db
             configConnection.close();
         } catch (Exception e) {
-            e.printStackTrace();
+            throw new RuntimeException(e);
         }
     }
 
