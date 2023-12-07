@@ -3,11 +3,11 @@ package com.example.weather.DAO;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.nio.file.Paths; 
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
-import java.sql.SQLException;
+import java.sql.SQLException; 
 import java.util.Properties;
 
 public class Connector {
@@ -41,8 +41,9 @@ public class Connector {
             e.printStackTrace();
         }
     }
-
+ 
     public Connection getControlConnection() throws SQLException {
+ 
         //Tạo đối tượng Connection
         Connection conn = null;
         try {
@@ -69,7 +70,9 @@ public class Connector {
 
 
     public static void updateFlagDataLinks(Connection conn, String id, String flag) throws SQLException {
+ 
         String updateQuery = readFileAsString("updateFlagDataLinks.sql");
+ 
 
         try (PreparedStatement preparedStatement = conn.prepareStatement(updateQuery)) {
             // Thiết lập giá trị tham số cho câu lệnh UPDATE
@@ -113,7 +116,9 @@ public class Connector {
     }
 
     public static void updateStatusConfig(Connection conn, String id, String status) throws SQLException {
+ 
         String updateQuery = readFileAsString("updateStatusConfig.sql");
+ 
 
         try (PreparedStatement preparedStatement = conn.prepareStatement(updateQuery)) {
             // Thiết lập giá trị tham số cho câu lệnh UPDATE
@@ -132,6 +137,7 @@ public class Connector {
             e.printStackTrace();
         }
     }
+ 
       static String readFileAsString(String filePath)  {
         String data ;
           try {
@@ -140,6 +146,20 @@ public class Connector {
               throw new RuntimeException(e);
           }
           return data;
+ 
+    }
+    // Phương thức trả về đối tượng ResultSet
+    public static ResultSet getResultSetWithConfigFlags(Connection configConnection, String flag, String status) throws Exception {
+        // Đọc nội dung của tệp vào một chuỗi
+        String selectQuery = readFileAsString("get_config.sql");
+        // Chuẩn bị câu truy vấn
+        PreparedStatement preparedStatement = configConnection.prepareStatement(selectQuery);
+        preparedStatement.setString(1, flag);
+        preparedStatement.setString(2, status);
+
+        // Thực hiện truy vấn và trả về ResultSet
+        return preparedStatement.executeQuery();
+ 
     }
     public static void writeLog(Connection conn, String activityType, String description, String configId, String status, String errorDetail) throws SQLException {
         String insertQuery = "INSERT INTO logs (activity_type, description, config_id, status, error_detail) VALUES (?, ?, ?, ?, ?)";

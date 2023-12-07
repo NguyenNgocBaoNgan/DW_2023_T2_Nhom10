@@ -18,7 +18,7 @@ public class Transform {
     public void startTransform() {
         Connector connection = new Connector();
         try (Connection configConnection = connection.getControlConnection()) {
-            String getConfig = readFileAsString("get_config.sql");
+            String getConfig = Connector.readFileAsString("get_config.sql");
             try (PreparedStatement preparedStatement = configConnection.prepareStatement(getConfig)) {
                 preparedStatement.setString(1, "TRUE");//flag
                 preparedStatement.setString(2, "EXTRACTED");//status
@@ -37,8 +37,7 @@ public class Transform {
                                 String username = resultSet.getString("WH_source_username");
                                 String password = resultSet.getString("WH_source_password");
                                 try (Connection WHConnection = Connector.getConnection(hostName, dbName, username, password)) {
-
-
+ 
                                     if (Files.exists(Path.of((FILE_LOCATION + "\\transform_data.sql")))) {
                                         String sqlTransform = readFileAsString(FILE_LOCATION + "\\transform_data.sql");
                                         Statement statement = WHConnection.createStatement();
@@ -50,6 +49,8 @@ public class Transform {
                                         if (Files.exists(Path.of((FILE_LOCATION + "\\check_description_dim.sql")))) {
                                             String check_description_dim = readFileAsString(FILE_LOCATION + "\\check_description_dim.sql");
                                             statement.execute(check_description_dim);
+
+                                             
                                             Connector.writeLog(configConnection,
                                                     "UPDATE description_dim TABLE ",
                                                     "Update description_dim table in WH",
@@ -167,12 +168,12 @@ public class Transform {
         } catch (Exception ignored) {
         }
     }
-
+ 
     private String readFileAsString(String filePath) throws Exception {
         String data ;
         data = new String(Files.readAllBytes(Paths.get(filePath)));
         return data;
-    }
+    } 
 
 
     public static void main(String[] args) throws IOException {
