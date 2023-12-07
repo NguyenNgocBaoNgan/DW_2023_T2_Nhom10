@@ -80,7 +80,7 @@ public class AggregateToDataMart {
 									SendEmail.sendMail("Không thể kết nối đến Mart.db!");
 
 									// Step 20: Close connections
-									connector.closeConnectDB(martConnection);
+									martConnection.close();
 									return; // Exit the program
 								}
 							}
@@ -98,7 +98,7 @@ public class AggregateToDataMart {
 							// ... (your SQL update query here)
 
 							// Step 19: Close connections
-							connector.closeConnectDB(stagingConnection);
+							stagingConnection.close();
 
 						} else { // Step 6.2
 							// Step 9a: Update Flag=FALSE in config table

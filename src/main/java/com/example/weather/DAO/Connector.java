@@ -1,10 +1,11 @@
 package com.example.weather.DAO;
 
 import java.io.IOException;
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.PreparedStatement;
-import java.sql.SQLException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.sql.*;
+import java.util.List;
 import java.util.Properties;
 
 public class Connector {
@@ -18,14 +19,14 @@ public class Connector {
         }
     }
 
-    private String hostName = prop.getProperty("data.hostName");
-    private String dbName = prop.getProperty("data.dbName");
-    private String username = prop.getProperty("data.username");
-    private String password = prop.getProperty("data.password");
+    private static final String hostName = prop.getProperty("data.hostName");
+    private static final String dbName = prop.getProperty("data.dbName");
+    private static final String username = prop.getProperty("data.username");
+    private static final String password = prop.getProperty("data.password");
 
-    private String connectionURL = "jdbc:mysql://" + hostName + "/" + dbName;
+    private static String connectionURL = "jdbc:mysql://" + hostName + "/" + dbName;
 
-    public Connection getControlConnection() throws SQLException {
+    public static Connection getControlConnection() throws SQLException {
         //Tạo đối tượng Connection
         Connection conn = null;
         try {
@@ -51,7 +52,7 @@ public class Connector {
     }
 
 
-    public void updateFlagDataLinks(Connection conn, String id, String flag) throws SQLException {
+    public static void updateFlagDataLinks(Connection conn, String id, String flag) throws SQLException {
         String updateQuery = "UPDATE data_link SET flag = ? WHERE id = ?";
 
         try (PreparedStatement preparedStatement = conn.prepareStatement(updateQuery)) {
@@ -95,7 +96,7 @@ public class Connector {
 
     }
 
-    public void updateStatusConfig(Connection conn, String id, String status) throws SQLException {
+    public static void updateStatusConfig(Connection conn, String id, String status) throws SQLException {
         String updateQuery = "UPDATE configuration SET status = ? WHERE id = ?";
 
         try (PreparedStatement preparedStatement = conn.prepareStatement(updateQuery)) {
@@ -115,7 +116,23 @@ public class Connector {
             e.printStackTrace();
         }
     }
+    public static String readFileAsString(String filePath) throws Exception {
+        String data = "";
+        data = new String(Files.readAllBytes(Paths.get(filePath)));
+        return data;
+    }
+    // Phương thức trả về đối tượng ResultSet
+    public static ResultSet getResultSetWithConfigFlags(Connection configConnection, String flag, String status) throws Exception {
+        // Đọc nội dung của tệp vào một chuỗi
+        String selectQuery = readFileAsString("get_config.sql");
+        // Chuẩn bị câu truy vấn
+        PreparedStatement preparedStatement = configConnection.prepareStatement(selectQuery);
+        preparedStatement.setString(1, flag);
+        preparedStatement.setString(2, status);
 
+        // Thực hiện truy vấn và trả về ResultSet
+        return preparedStatement.executeQuery();
+    }
     public static void writeLog(Connection conn, String activityType, String description, String configId, String status, String errorDetail) throws SQLException {
         String insertQuery = "INSERT INTO logs (activity_type, description, config_id, status, error_detail) VALUES (?, ?, ?, ?, ?)";
 
