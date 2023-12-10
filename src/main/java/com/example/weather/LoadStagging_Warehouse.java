@@ -60,8 +60,8 @@ public class LoadStagging_Warehouse {
 
         // Lấy dữ liệu từ bảng config
         ResultSet configData = executeQuery(controlConnection, sqlQueries.get("SQL_SELECT_CONFIG_DATA"));
-       System.out.println(sqlQueries.get("SQL_CHECK_DATA_EXISTS"));
-        
+       //System.out.println(sqlQueries.get("SQL_CHECK_DATA_EXISTS"));
+        //
 
         // Cập nhật trạng thái của các config đang chạy
         while (configData.next()) {
@@ -73,7 +73,10 @@ public class LoadStagging_Warehouse {
             
             if (flag.equals("TRUE")&& status.equals("TRANSFORMED")) {
                 // Nếu trạng thái là TRANSFORMED, thì cập nhật trạng thái thành LOADING
-                updateConfigStatus(controlConnection, configId, "LOADING", flag);
+
+
+                Connector.updateStatusConfig(controlConnection,String.valueOf(configId),"LOADING");
+                //updateConfigStatus(controlConnection, configId, "LOADING", flag);
 
                 // Kiểm tra kết nối với staging database
                 Connection whConnection = Connector.getConnection("localhost:3306", "weather_warehouse", "root", "");
@@ -95,7 +98,7 @@ public class LoadStagging_Warehouse {
 
                     // Gửi mail thông báo
 //                    SendEmail.sendMail("Config ID " + configId + " không kết nối với staging database");
-                    SendEmail.sendMail("nganluvjb@gmail.com","Important Error: Action Required", "Dear User,\n\n"
+                    SendEmail.sendMail("20130331@st.hcmuaf.edu.vn","Important Error: Action Required", "Dear User,\n\n"
                             + "We wanted to inform you about an important error that requires your attention.\n"
                             + "Please review the error below:\n\n"
                             + "Error: [Connection to weather_warehouse failed]\n\n"
@@ -159,6 +162,7 @@ public class LoadStagging_Warehouse {
             
             // Tạo và thực thi câu lệnh
             stmt = connection.createStatement();
+            connection.setAutoCommit(false);
             int rowsAffected = stmt.executeUpdate(transferQuery);
             connection.commit();
             // Hiển thị thông báo sau khi chuyển dữ liệu
@@ -177,6 +181,7 @@ public class LoadStagging_Warehouse {
             // Câu lệnh SQL để cập nhật
             String sqlUpdate = sqlQueries.get("SQL_CHECK_DATA_EXISTS");
 
+            connection.setAutoCommit(false);
             // Chuẩn bị câu lệnh
             preparedStatement = connection.prepareStatement(sqlUpdate);
 
