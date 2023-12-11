@@ -144,9 +144,9 @@ public class AggregateToDataMart {
                                         Connector.updateStatusConfig(configConnection, idConfig, "DATAMART_LOADED");
 
                                     }
-//									đóng kết nối mart db
+//									đóng kết nối weather_mart db
                                     martConnection.close();
-                                    //  Close staging db connections
+                                    //  Close weather_warehouse db connections
                                     stagingConnection.close();
                                 } else {
                                     // Update Flag=FALSE in config table

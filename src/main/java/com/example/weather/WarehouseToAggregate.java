@@ -39,14 +39,14 @@ public class WarehouseToAggregate {
                     try (Connection stagingConnection = Connector.getConnection(HOSTNAME, STAGING_DB_NAME, USERNAME, PASSWORD)) {
                         //      Kiểm tra kết nối có thành công hay không?
                         if (stagingConnection.isValid(5)) {
-                            //Delete Aggregate then create aggregate table and transfer data from records to aggregate
+                            //Delete Aggregate if existed then create aggregate table and transfer data from records to aggregate
                             List<String> sqlLines2 = Files.readAllLines(Path.of("insert_data_Aggregate.sql"));
                             String insertQuery = String.join(" ", sqlLines2);
                             PreparedStatement preparedStatement = configConnection.prepareStatement(insertQuery);
                             preparedStatement.executeUpdate();
                             // Update config table status AGGREGATE_LOADED
                             Connector.updateStatusConfig(configConnection, idConfig, "AGGREGATE_LOADED");
-//                        Đóng kết nối stagging.db
+//                        Đóng kết nối weather_warehouse.db
                             stagingConnection.close();
                         } else {
                             //  Update config table status FALSE
