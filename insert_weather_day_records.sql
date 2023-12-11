@@ -19,6 +19,8 @@ SELECT
 FROM weather_warehouse.aggregate
 GROUP BY weather_warehouse.aggregate.province_name,weather_warehouse.aggregate.date_forcast
 ON DUPLICATE KEY UPDATE
+                      date_record= VALUES(date_record),
+                      time_record= VALUES(time_record),
                      temperature = VALUES(temperature),
                      feel_like = VALUES(feel_like),
                      description = VALUES(description),
