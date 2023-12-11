@@ -7,17 +7,17 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
-public class AggrigateToDataMart {
-    public AggrigateToDataMart() {
+public class AggregateToDataMart {
+    public AggregateToDataMart() {
     }
 
-    public void aggrigateToMart() {
+    public void aggregateToMart() {
         // Connect to control.db
         try (Connection configConnection = Connector.getControlConnection()) {
             //      Kiểm tra kết nối có thành công hay không?
             if (configConnection.isValid(5)) {
-                // Lấy dữ liệu có trong bảng config Flag = TRUE Status = AGGRIGATE_LOADED
-                ResultSet resultSet = Connector.getResultSetWithConfigFlags(configConnection, "TRUE", "AGGRIGATE_LOADED");
+                // Lấy dữ liệu có trong bảng config Flag = TRUE Status = AGGREGATE_LOADED
+                ResultSet resultSet = Connector.getResultSetWithConfigFlags(configConnection, "TRUE", "AGGREGATE_LOADED");
 
                 //Kiểm tra có còn dòng config nào  không?
                 while (resultSet.next()) {
@@ -73,7 +73,7 @@ public class AggrigateToDataMart {
 
                                     // Log information
                                     Connector.writeLog(configConnection,
-                                            "AGGRIGATE_TO_DATAMART",
+                                            "AGGREGATE_TO_DATAMART",
                                             "Loading data from csv files to records_staging table",
                                             idConfig,
                                             "SUCCESS",
@@ -105,7 +105,7 @@ public class AggrigateToDataMart {
 
                                     //  Log event
                                     Connector.writeLog(configConnection,
-                                            "AGGRIGATE_TO_DATAMART",
+                                            "AGGREGATE_TO_DATAMART",
                                             "Loading data from csv files to records_staging table",
                                             idConfig,
                                             "ERR",
@@ -137,7 +137,7 @@ public class AggrigateToDataMart {
 
                             // Log event Can't connect to Staging DB!
                             Connector.writeLog(configConnection,
-                                    "AGGRIGATE_TO_DATAMART",
+                                    "AGGREGATE_TO_DATAMART",
                                     "Loading data from csv files to records_staging table",
                                     idConfig,
                                     "ERR",
@@ -169,7 +169,7 @@ public class AggrigateToDataMart {
     }
 
     public static void main(String[] args) throws SQLException {
-        AggrigateToDataMart aggrigateToDataMart = new AggrigateToDataMart();
-        aggrigateToDataMart.aggrigateToMart();
+        AggregateToDataMart aggregateToDataMart = new AggregateToDataMart();
+        aggregateToDataMart.aggregateToMart();
     }
 }

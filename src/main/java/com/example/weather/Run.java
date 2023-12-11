@@ -13,10 +13,10 @@ public class Run {
         trans.startTransform();
         LoadStagging_Warehouse store = new LoadStagging_Warehouse();
         store.startLoading();
-        WarehouseToAggrigate warehouseToAggrigate = new WarehouseToAggrigate();
-        warehouseToAggrigate.whToAggrigate();
-        AggrigateToDataMart aggrigateToDataMart = new AggrigateToDataMart();
-        aggrigateToDataMart.aggrigateToMart();
+        WarehouseToAggregate warehouseToAggregate = new WarehouseToAggregate();
+        warehouseToAggregate.whToAggregate();
+        AggregateToDataMart aggregateToDataMart = new AggregateToDataMart();
+        aggregateToDataMart.aggregateToMart();
 
     }
 }
