@@ -1,8 +1,6 @@
 package com.example.weather;
 
 import com.example.weather.DAO.Connector;
-import com.example.weather.SendEmail;
-
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
@@ -14,18 +12,14 @@ import java.nio.file.*;
 import java.util.stream.Collectors;
 
 public class Extract {
-    private static final String HOSTNAME = "localhost";
-    private static final String STAGING_DB_NAME = "weather_warehouse";
-    private static final String USERNAME = "root";
-    private static final String PASSWORD = "";
 
     public Extract() {
 
     }
 
-    public void extract() throws SQLException {
+    public void extract() {
 //        Kết nối control.db
-        try (Connection configConnection = Connector.getControlConnection();) {
+        try (Connection configConnection = Connector.getControlConnection()) {
 //      Kiểm tra kết nối có thành công hay không?
             if (configConnection.isValid(5)) {
                 // Lấy dữ liệu bảng config có Flag = TRUE Status = CRAWLED
@@ -39,13 +33,17 @@ public class Extract {
                     // Cập nhật status EXTRACTING config table
                     Connector.updateStatusConfig(configConnection, idConfig, "EXTRACTING");
                     // Kết nối với wearther_warehouse db
-                    try (Connection stagingConnection = Connector.getConnection(HOSTNAME, STAGING_DB_NAME, USERNAME, PASSWORD)) {
+                    String hostName = "localhost";
+                    String dbName = resultSet.getString("WH_db_name");
+                    String username = resultSet.getString("WH_source_username");
+                    String password = resultSet.getString("WH_source_password");
+                    try (Connection stagingConnection = Connector.getConnection(hostName, dbName, username, password)) {
                         //      Kiểm tra kết nối có thành công hay không?
                         if (stagingConnection.isValid(5)) {
                             // Truncate bảng records_staging
                             List<String> sqlLines = Files.readAllLines(Path.of("truncate_records_staging.sql"));
                             String truncateQuery = String.join(" ", sqlLines);
-                            PreparedStatement preparedStatement = configConnection.prepareStatement(truncateQuery);
+                            PreparedStatement preparedStatement = stagingConnection.prepareStatement(truncateQuery);
                             preparedStatement.executeUpdate();
 //                          Lấy danh sách các tệp tin CSV trong thư mục
                             List<Path> csvFiles = Files.list(Paths.get(csv_folder_path))
@@ -158,7 +156,7 @@ public class Extract {
 
                 // Lưu dữ liệu vào cơ sở dữ liệu
                 List<String> sqlLines = Files.readAllLines(Path.of("insertDataToRecords_staging.sql"));
-                System.out.println(sqlLines + "sql nè");
+                System.out.println(sqlLines + " sql nè");
                 String insertQuery = String.join(" ", sqlLines);
 
                 try (PreparedStatement preparedStatement = connection.prepareStatement(insertQuery)) {
@@ -183,6 +181,7 @@ public class Extract {
                 lineCount++;
 
             }
+            reader.close();
         }
 
     }
@@ -201,5 +200,6 @@ public class Extract {
     }
 
     public static void main(String[] args) throws IOException, SQLException {
+        new Extract().extract();
     }
 }

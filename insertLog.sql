@@ -1,0 +1,1 @@
+INSERT INTO logs (activity_type, description, config_id, status, error_detail) VALUES (?, ?, ?, ?, ?)

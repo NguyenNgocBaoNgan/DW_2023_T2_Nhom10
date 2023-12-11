@@ -22,7 +22,7 @@ public class Connector {
         readConfig();
     }
 
-    private void readConfig() {
+    private static void readConfig() {
         try {
             // Đọc dữ liệu từ file config.txt
             Path path = Paths.get("config.txt");
@@ -40,7 +40,7 @@ public class Connector {
     }
 
     public static Connection getControlConnection() throws SQLException {
-
+        readConfig();
         //Tạo đối tượng Connection
         Connection conn = null;
         try {
@@ -53,7 +53,6 @@ public class Connector {
     }
 
     public static Connection getConnection(String hostName, String dbName, String username, String password) throws SQLException {
-
         //Tạo đối tượng Connection
         Connection conn = null;
         try {
@@ -67,7 +66,6 @@ public class Connector {
 
 
     public static void updateFlagDataLinks(Connection conn, String id, String flag) throws SQLException {
-
         String updateQuery = readFileAsString("updateFlagDataLinks.sql");
 
 
@@ -113,7 +111,6 @@ public class Connector {
     }
 
     public static void updateStatusConfig(Connection conn, String id, String status) throws SQLException {
-
         String updateQuery = readFileAsString("updateStatusConfig.sql");
 
 
@@ -161,7 +158,7 @@ public class Connector {
     }
 
     public static void writeLog(Connection conn, String activityType, String description, String configId, String status, String errorDetail) throws SQLException {
-        String insertQuery = "INSERT INTO logs (activity_type, description, config_id, status, error_detail) VALUES (?, ?, ?, ?, ?)";
+        String insertQuery = readFileAsString("insertLog.sql");
 
         try (PreparedStatement preparedStatement = conn.prepareStatement(insertQuery)) {
             preparedStatement.setString(1, activityType);
@@ -171,12 +168,10 @@ public class Connector {
             preparedStatement.setString(5, errorDetail);
 
             int rowsInserted = preparedStatement.executeUpdate();
-            if (rowsInserted > 0) {
-                System.out.println("Inserted log " + activityType + " " + status + " successfully");
-            } else {
-                System.out.println("Failed to insert log");
-            }
+            System.out.println("Inserted log " + activityType + " " + status + " successfully");
+
         } catch (SQLException e) {
+            System.out.println("Failed to insert log");
             e.printStackTrace();
         }
     }
