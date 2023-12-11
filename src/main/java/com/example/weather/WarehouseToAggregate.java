@@ -10,17 +10,17 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
-public class WarehouseToAggrigate {
+public class WarehouseToAggregate {
     private static final String HOSTNAME = "localhost";
     private static final String STAGING_DB_NAME = "weather_warehouse";
     private static final String USERNAME = "root";
     private static final String PASSWORD = "";
 
-    public WarehouseToAggrigate() {
+    public WarehouseToAggregate() {
 
     }
 
-    public void whToAggrigate() throws SQLException {
+    public void whToAggregate() throws SQLException {
         // Step 1: Connect to control.db
         try (Connection configConnection = Connector.getControlConnection()) {
             //      Kiểm tra kết nối có thành công hay không?
@@ -31,16 +31,16 @@ public class WarehouseToAggrigate {
 //                Kiểm tra còn dòng config nào chưa chạy không?
                 while (resultSet.next()) {
                     idConfig = resultSet.getString("id").trim();
-                    // Cập nhật status AGGRIGATE_LOAD config table
-                    Connector.updateStatusConfig(configConnection, idConfig, "AGGRIGATE_LOAD");
+                    // Cập nhật status AGGREGATE_LOAD config table
+                    Connector.updateStatusConfig(configConnection, idConfig, "AGGREGATE_LOAD");
 
 //				 // Connect to wearther_warehouse.db
                     try (Connection stagingConnection = Connector.getConnection(HOSTNAME, STAGING_DB_NAME, USERNAME, PASSWORD)) {
                         //      Kiểm tra kết nối có thành công hay không?
                         if (stagingConnection.isValid(5)) {
-                            //Truncate  aggrigate table and transfer data from records to aggrigate
+                            //Truncate  aggregate table and transfer data from records to aggregate
                             // Đọc toàn bộ nội dung file
-                            String sql = Files.readString(Path.of("insert_data_Aggrigate.sql"));
+                            String sql = Files.readString(Path.of("insert_data_Aggregate.sql"));
                             // Tách thành mảng các câu lệnh riêng lẻ
                             String[] commands = sql.split(";");
                             // Duyệt và thực thi từng câu lệnh
@@ -56,15 +56,15 @@ public class WarehouseToAggrigate {
                                     ps.executeUpdate();
                                 }
                             }
-                            // Update config table status AGGRIGATE_LOADED
-                            Connector.updateStatusConfig(configConnection, idConfig, "AGGRIGATE_LOADED");
+                            // Update config table status AGGREGATE_LOADED
+                            Connector.updateStatusConfig(configConnection, idConfig, "AGGREGATE_LOADED");
                             // thêm thông tin (thời gian, kết quả ) vào bảng log
                             Connector.writeLog(configConnection,
-                                    "WAREHOUSE_TO_AGGRIGATE",
-                                    "Load data from warehouse to aggrigate table",
+                                    "WAREHOUSE_TO_AGGREGATE",
+                                    "Load data from warehouse to aggregate table",
                                     idConfig,
                                     "SUCCESS",
-                                    "Load data from warehouse to aggrigate table successfully!");
+                                    "Load data from warehouse to aggregate table successfully!");
 
                             //Đóng kết nối stagging.db
                             stagingConnection.close();
@@ -73,8 +73,8 @@ public class WarehouseToAggrigate {
                             Connector.updateFlagDataLinks(configConnection, idConfig, "FALSE");
                             // Ghi vào log sự kiện cập nhật flag
                             Connector.writeLog(configConnection,
-                                    "WAREHOUSE_TO_AGGRIGATE",
-                                    "Loading data from records_staging table to aggrigate table",
+                                    "WAREHOUSE_TO_AGGREGATE",
+                                    "Loading data from records_staging table to aggregate table",
                                     idConfig,
                                     "ERR",
                                     "Cant connect to wearther_warehouse DB");
@@ -109,7 +109,7 @@ public class WarehouseToAggrigate {
 
 
     public static void main(String[] args) throws SQLException {
-        WarehouseToAggrigate whAggrigate = new WarehouseToAggrigate();
-        whAggrigate.whToAggrigate();
+        WarehouseToAggregate whAggregate = new WarehouseToAggregate();
+        whAggregate.whToAggregate();
     }
 }

@@ -1,5 +1,5 @@
-TRUNCATE aggrigate;
-INSERT INTO aggrigate(province_name, date_record, time_record, time_forcast, date_forcast, temperature, feel_like,
+TRUNCATE aggregate;
+INSERT INTO aggregate(province_name, date_record, time_record, time_forcast, date_forcast, temperature, feel_like,
                       description_name, wind_direction_name,
                       wind_speed, humidity, uv_index, cloud_cover, precipitation, accumulation)
 SELECT province_dim.name_vi,
