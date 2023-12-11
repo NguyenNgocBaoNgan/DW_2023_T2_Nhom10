@@ -6,11 +6,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.Statement;
-import java.util.Properties;
+import java.sql.*;
 
 public class Transform {
     String FILE_LOCATION;
@@ -37,20 +33,35 @@ public class Transform {
                                 String username = resultSet.getString("WH_source_username");
                                 String password = resultSet.getString("WH_source_password");
                                 try (Connection WHConnection = Connector.getConnection(hostName, dbName, username, password)) {
- 
+
                                     if (Files.exists(Path.of((FILE_LOCATION + "\\transform_data.sql")))) {
                                         String sqlTransform = readFileAsString(FILE_LOCATION + "\\transform_data.sql");
-                                        Statement statement = WHConnection.createStatement();
-                                        // Chia script thành các câu lệnh riêng biệt
+
+
                                         String[] commands = sqlTransform.split(";");
+                                        PreparedStatement ps = null;
+
                                         for (String command : commands) {
-                                            statement.execute(command);
+                                            if (ps != null) {
+                                                ps.close();
+                                            }
+
+                                            ps = WHConnection.prepareStatement(command.trim());
+                                            System.out.println("Running command: " + command.trim());
+                                            System.out.println("================================================================");
+                                            ps.executeUpdate();
+
+                                           }
+
+                                        if (ps != null) {
+                                            ps.close();
                                         }
+
                                         if (Files.exists(Path.of((FILE_LOCATION + "\\check_description_dim.sql")))) {
                                             String check_description_dim = readFileAsString(FILE_LOCATION + "\\check_description_dim.sql");
+                                            Statement statement = WHConnection.createStatement();
                                             statement.execute(check_description_dim);
 
-                                             
                                             Connector.writeLog(configConnection,
                                                     "UPDATE description_dim TABLE ",
                                                     "Update description_dim table in WH",
@@ -88,8 +99,8 @@ public class Transform {
                                                 idConfig,
                                                 "SUCCESS",
                                                 "");
-                                    } else {
-                                        // can't find transform_data.sql
+                                    } else // can't find transform_data.sql
+                                    {
                                         Connector.updateFlagConfig(configConnection, idConfig, "FALSE");
                                         Connector.writeLog(configConnection,
                                                 "TRANSFORM",
@@ -111,29 +122,30 @@ public class Transform {
 
                                         SendEmail.sendMail(recipientEmail, subject, body);
                                     }
-
                                     WHConnection.close();
 
-                                } catch (Exception ex) {
+                                } catch (SQLException ex) {
                                     //Can't connect to warehouse database
-                                    Connector.updateFlagConfig(configConnection, idConfig, "FALSE");
-                                    Connector.writeLog(configConnection,
-                                            "TRANSFORM",
-                                            "Connect to warehouse database",
-                                            idConfig,
-                                            "ERR",
-                                            "Cannot connect to warehouse database");
-                                    String subject = "ERROR: Connection Issue with Warehouse Database";
-                                    String body = "Dear Admin,\n\n" +
-                                            "We encountered an error while trying to connect to the warehouse database.\n\n" +
-                                            "Error Details: Unable to establish a connection to the warehouse database.\n\n" +
-                                            "Please take the following actions to resolve the issue:\n" +
-                                            "1. Check the network connection and ensure the database server is accessible.\n" +
-                                            "2. Verify the database credentials used for the connection.\n\n" +
-                                            "If you need further assistance, feel free to contact our support team.\n\n" +
-                                            "Thank you,\nYour Application Team";
 
-                                    SendEmail.sendMail(recipientEmail, subject, body);
+//                                    Connector.updateFlagConfig(configConnection, idConfig, "FALSE");
+//                                    Connector.writeLog(configConnection,
+//                                            "TRANSFORM",
+//                                            "Connect to warehouse database",
+//                                            idConfig,
+//                                            "ERR",
+//                                            "Cannot connect to warehouse database");
+//                                    String subject = "ERROR: Connection Issue with Warehouse Database";
+//                                    String body = "Dear Admin,\n\n" +
+//                                            "We encountered an error while trying to connect to the warehouse database.\n\n" +
+//                                            "Error Details: Unable to establish a connection to the warehouse database.\n\n" +
+//                                            "Please take the following actions to resolve the issue:\n" +
+//                                            "1. Check the network connection and ensure the database server is accessible.\n" +
+//                                            "2. Verify the database credentials used for the connection.\n\n" +
+//                                            "If you need further assistance, feel free to contact our support team.\n\n" +
+//                                            "Thank you,\nYour Application Team";
+//
+//                                    SendEmail.sendMail(recipientEmail, subject, body);
+                                   ex.printStackTrace();
                                 }
 
 
@@ -168,12 +180,12 @@ public class Transform {
         } catch (Exception ignored) {
         }
     }
- 
+
     private String readFileAsString(String filePath) throws Exception {
-        String data ;
+        String data;
         data = new String(Files.readAllBytes(Paths.get(filePath)));
         return data;
-    } 
+    }
 
 
     public static void main(String[] args) throws IOException {

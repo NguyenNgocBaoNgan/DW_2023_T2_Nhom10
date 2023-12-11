@@ -1,28 +1,11 @@
-UPDATE records_staging AS rs
-SET rs.province = (
-    CASE
-        WHEN rs.province REGEXP '^[0-9]+$' THEN rs.province
-        WHEN EXISTS (SELECT 1
-                     FROM province_dim AS pd
-                     WHERE rs.province LIKE CONCAT('%', pd.name_vi, '%')
-                        OR rs.province LIKE CONCAT('%', pd.name_en, '%')
-                        OR rs.province LIKE CONCAT('%', TRIM(pd.name_en), '%')
-                        OR rs.province LIKE CONCAT('%', TRIM(pd.name_vi), '%')
-                        OR rs.province LIKE CONCAT('%', SUBSTRING_INDEX(pd.name_vi, ' ', -1), '%')
-                        OR rs.province LIKE CONCAT('%', SUBSTRING_INDEX(pd.name_en, ' ', -1), '%')) THEN (SELECT pd.id
-                                                                                                          FROM province_dim AS pd
-                                                                                                          WHERE rs.province LIKE CONCAT('%', pd.name_vi, '%')
-                                                                                                             OR rs.province LIKE CONCAT('%', pd.name_en, '%')
-                                                                                                             OR rs.province LIKE CONCAT('%', TRIM(pd.name_en), '%')
-                                                                                                             OR rs.province LIKE CONCAT('%', TRIM(pd.name_vi), '%')
-                                                                                                             OR rs.province LIKE
-                                                                                                                CONCAT('%', SUBSTRING_INDEX(pd.name_vi, ' ', -1), '%')
-                                                                                                             OR rs.province LIKE
-                                                                                                                CONCAT('%', SUBSTRING_INDEX(pd.name_en, ' ', -1), '%')
-                                                                                                          LIMIT 1)
-        ELSE (SELECT NULL)
-        END
-    );
+UPDATE records_staging rs
+    INNER JOIN
+    (
+        SELECT id, TRIM(LOWER(name_vi)) AS name_vi, TRIM(LOWER(name_en)) AS name_en
+        FROM province_dim
+    ) pd
+    ON TRIM(LOWER(rs.province)) IN (pd.name_vi, pd.name_en)
+SET rs.province = pd.id;
 
 DELETE
 FROM records_staging
@@ -39,12 +22,17 @@ SET date_record = IF(date_record IS NULL OR date_record = '', DATE_FORMAT(NOW(),
 WHERE date_record IS NULL
    OR date_record = '';
 
+
 UPDATE records_staging AS rs
-    JOIN date_dim AS dd ON
-        CASE
-            WHEN rs.date_record REGEXP '^[0-9]+$' THEN rs.date_record = dd.date_key
-            ELSE dd.full_date = STR_TO_DATE(rs.date_record, '%d-%m-%Y') END
-SET rs.date_record = dd.date_key;
+    LEFT JOIN (
+        SELECT
+            rs.date_record,
+            COALESCE(dd1.date_key, dd2.date_key) AS new_date
+        FROM records_staging rs
+                 LEFT JOIN date_dim dd1 ON rs.date_record REGEXP '^\d+$' AND rs.date_record = dd1.date_key
+                 LEFT JOIN date_dim dd2 ON dd2.full_date = STR_TO_DATE(rs.date_record, '%d-%m-%Y')
+    ) AS subquery ON rs.date_record = subquery.date_record
+SET rs.date_record = subquery.new_date;
 
 
 DELETE
@@ -57,12 +45,17 @@ FROM records_staging
 WHERE date_forcast IS NULL
    OR date_forcast = '';
 
-UPDATE records_staging AS rs
-    JOIN date_dim AS dd ON
-        CASE
-            WHEN rs.date_forcast REGEXP '^[0-9]+$' THEN rs.date_forcast = dd.date_key
-            ELSE dd.full_date = STR_TO_DATE(rs.date_forcast, '%d-%m-%Y') END
-SET rs.date_forcast = dd.date_key;
+UPDATE records_staging rs
+    LEFT JOIN (
+        SELECT
+            rs.date_forcast,
+            COALESCE(dd1.date_key, dd2.date_key) AS new_date
+        FROM records_staging rs
+                 LEFT JOIN date_dim dd1 ON rs.date_forcast REGEXP '^\d+$' AND rs.date_forcast = dd1.date_key
+                 LEFT JOIN date_dim dd2 ON dd2.full_date = STR_TO_DATE(rs.date_forcast, '%d-%m-%Y')
+    ) AS subquery ON rs.date_forcast = subquery.date_forcast
+SET rs.date_forcast = subquery.new_date;
+
 
 UPDATE records_staging r1
     JOIN records_staging r2 ON r1.id = r2.id - 1
@@ -110,8 +103,8 @@ SELECT DISTINCT description
 FROM records_staging
 WHERE NOT EXISTS (SELECT *
                   FROM description_dim
-                  WHERE name_en = records_staging.description
-                     OR id = records_staging.description);
+                  WHERE name_en like records_staging.description
+                     OR id like records_staging.description);
 
 UPDATE records_staging AS rs
 SET rs.description = (
@@ -164,7 +157,8 @@ SET r1.wind_speed= IF(r1.wind_speed IS NULL OR r1.wind_speed = '', r2.wind_speed
 WHERE r1.wind_speed IS NULL
    OR r1.wind_speed = ''
     AND r1.id <= (SELECT MAX(id) FROM records_staging);
-
+CALL UpdateWindDirection();
+CALL UpdateWindSpeed();
 UPDATE records_staging r1
     JOIN records_staging r2 ON r1.id = r2.id - 1
     JOIN records_staging r3 ON r1.id = r3.id + 1

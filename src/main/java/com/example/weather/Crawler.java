@@ -31,10 +31,9 @@ public class Crawler {
     }
 
 
- 
-    public void startCrawl() throws IOException, ParseException {
+    public void startCrawl() {
         try (Connection connection = Connector.getControlConnection()) {
- 
+
             String getConfig = readFileAsString("get_config.sql");
             try (PreparedStatement preparedStatement = connection.prepareStatement(getConfig)) {
                 preparedStatement.setString(1, "TRUE");//flag
@@ -48,12 +47,12 @@ public class Crawler {
                             String email = resultSet.getString("error_to_email").trim();
                             if (Files.exists(Paths.get(FILE_LOCATION)) && Files.isDirectory(Paths.get(FILE_LOCATION))) {
                                 Connector.updateStatusConfig(connection, idConfig, "CRAWLING");
- 
+
                                 String sqlGetLinks = readFileAsString("get_link.sql");
                                 try (PreparedStatement preparedStatement1 = connection.prepareStatement(sqlGetLinks)) {
                                     try (ResultSet links = preparedStatement1.executeQuery()) {
-                                        do {
-                                            links.next();
+
+                                        while (links.next()) {
                                             String link = links.getString("link");
                                             String content = crawl(link, new ArrayList<>());
                                             if (content != null) {
@@ -61,7 +60,7 @@ public class Crawler {
                                             } else {
                                                 //Link error
                                                 String idLink = links.getString("id");
-                                                new Connector().updateFlagDataLinks(connection, idLink, "FALSE");
+                                                Connector.updateFlagDataLinks(connection, idLink, "FALSE");
                                                 System.out.println("CRAWL FAILED");
 
                                                 Connector.writeLog(connection,
@@ -81,7 +80,7 @@ public class Crawler {
                                                 SendEmail.sendMail(email, subject, body);
 
                                             }
-                                        } while (links.next());
+                                        };
                                         //Success
                                         Connector.updateStatusConfig(connection, idConfig, "CRAWLED");
                                         Connector.writeLog(connection,
@@ -121,16 +120,33 @@ public class Crawler {
         }
     }
 
-    public void exportData(String content) throws IOException {
+    public void exportData(String content) {
         String fileName = "Crawl_" + province + "_" + getTimeNow() + "_" + getDateNow();
         fileName = fileName.replace(":", "_");
         String file_path = FILE_LOCATION + "\\" + fileName + ".csv";
         System.out.println("File path: " + file_path);
         File file = new File(file_path);
-        if (!file.exists()) createFile(file_path);
+        if (!file.exists()) {
+            try {
+                createFile(file_path);
+            } catch (FileNotFoundException e) {
+                throw new RuntimeException(e);
+            }
+        }
 
-        Writer writer = new OutputStreamWriter(new FileOutputStream(file_path, true), StandardCharsets.UTF_8);
-        writer.write(content + "\n");
+
+        try {
+            Writer writer = null;
+            writer = new OutputStreamWriter(new FileOutputStream(file_path, true), StandardCharsets.UTF_8);
+            writer.write(content + "\n");
+            writer.flush();
+            writer.close();
+        } catch (FileNotFoundException e) {
+            throw new RuntimeException(e);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+
         System.out.println("CRAWL SUCCESSED");
 
     }
