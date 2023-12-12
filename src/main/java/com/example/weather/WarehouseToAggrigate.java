@@ -11,11 +11,6 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 
 public class WarehouseToAggrigate {
-    private static final String HOSTNAME = "localhost";
-    private static final String STAGING_DB_NAME = "weather_warehouse";
-    private static final String USERNAME = "root";
-    private static final String PASSWORD = "";
-
     public WarehouseToAggrigate() {
 
     }
@@ -35,7 +30,11 @@ public class WarehouseToAggrigate {
                     Connector.updateStatusConfig(configConnection, idConfig, "AGGRIGATE_LOAD");
 
 //				 // Connect to wearther_warehouse.db
-                    try (Connection stagingConnection = Connector.getConnection(HOSTNAME, STAGING_DB_NAME, USERNAME, PASSWORD)) {
+                    String hostName = "localhost";
+                    String dbName = resultSet.getString("WH_db_name");
+                    String username = resultSet.getString("WH_source_username");
+                    String password = resultSet.getString("WH_source_password");
+                    try (Connection stagingConnection = Connector.getConnection(hostName, dbName, username, password)) {
                         //      Kiểm tra kết nối có thành công hay không?
                         if (stagingConnection.isValid(5)) {
                             //Truncate  aggrigate table and transfer data from records to aggrigate
