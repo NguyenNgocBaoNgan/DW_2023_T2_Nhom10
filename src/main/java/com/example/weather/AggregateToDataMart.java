@@ -40,26 +40,27 @@ public class AggregateToDataMart {
                             try (Connection martConnection = Connector.getConnection(hostName1, dbName1, username1, password1)) {
                                 //      Kiểm tra kết nối có thành công hay không?
                                 if (martConnection.isValid(5)) {
+                                    String folder_name = resultSet.getString("folder_name");
                                     // Transfer data to weather_hours_records
-                                    String insertSql = Connector.readFileAsString("insert_weather_hour_records.sql");
+                                    String insertSql = Connector.readFileAsString(folder_name+"\\insert_weather_hour_records.sql");
                                     PreparedStatement psInsert = martConnection.prepareStatement(insertSql);
 
                                     psInsert.executeUpdate();
 
                                     // Update is_available = TRUE
-                                    String update_is_available = Connector.readFileAsString("update_is_available_true_hour.sql");
+                                    String update_is_available = Connector.readFileAsString(folder_name+"\\update_is_available_true_hour.sql");
                                     PreparedStatement psUpdate_available = martConnection.prepareStatement(update_is_available);
                                     psUpdate_available.setString(1, "TRUE");
                                     psUpdate_available.executeUpdate();
 
                                     // Step: Transfer calculated data to weather_date_records
-                                    String insertSql_day_records = Connector.readFileAsString("insert_weather_day_records.sql");
+                                    String insertSql_day_records = Connector.readFileAsString(folder_name+"\\insert_weather_day_records.sql");
                                     PreparedStatement psInsert_day_records = martConnection.prepareStatement(insertSql_day_records);
 
                                     psInsert_day_records.executeUpdate();
 
                                     // Update is_available = TRUE
-                                    update_is_available = Connector.readFileAsString("update_is_available_true_day.sql");
+                                    update_is_available = Connector.readFileAsString(folder_name+"\\update_is_available_true_day.sql");
                                     PreparedStatement psUpdate_available2 = martConnection.prepareStatement(update_is_available);
                                     psUpdate_available2.setString(1, "TRUE");
                                     psUpdate_available2.executeUpdate();

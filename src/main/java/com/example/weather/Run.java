@@ -3,7 +3,7 @@ package com.example.weather;
 import java.sql.SQLException;
 
 public class Run {
-    public static void main(String[] args) throws SQLException {
+    public static void main(String[] args) throws Exception {
 
         Crawler crawler = new Crawler();
         crawler.startCrawl();
@@ -11,8 +11,8 @@ public class Run {
         extract.extract();
         Transform trans = new Transform();
         trans.startTransform();
-        LoadStagging_Warehouse store = new LoadStagging_Warehouse();
-        store.startLoading();
+        LoadStagging_Warehouse loadToWarehouse = new LoadStagging_Warehouse();
+        loadToWarehouse.startLoading();
         WarehouseToAggregate warehouseToAggregate = new WarehouseToAggregate();
         warehouseToAggregate.whToAggregate();
         AggregateToDataMart aggregateToDataMart = new AggregateToDataMart();
