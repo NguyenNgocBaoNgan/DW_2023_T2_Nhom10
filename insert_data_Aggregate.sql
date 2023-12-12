@@ -23,9 +23,8 @@ FROM records
          JOIN date_dim AS date_dim2 ON records.date_forcast = date_dim2.date_key
          JOIN description_dim ON records.description_id = description_dim.id
          JOIN wind_direction_dim ON records.wind_direction_id = wind_direction_dim.id
-WHERE records.is_expired = 'FALSE'
+WHERE records.is_expired = 'FALSE' ORDER BY records.id DESC
 LIMIT 3024;
-
 
 
 
