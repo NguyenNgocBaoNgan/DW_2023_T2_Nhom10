@@ -188,7 +188,8 @@ public class Connector {
                         "Thank you,\nYour Application Team";
                 System.out.println("There is not result right and status is " + status);
                 SendEmail.sendMail(recipientEmail, subject, body);
-                if(!result1.getString("flag").equals("TRUE") && !result1.getString("status").endsWith("ED")) check=true;
+                if(!result1.getString("flag").equals("TRUE") && !result1.getString("status").endsWith("ED") ) check=true;
+                if(!result1.getString("flag").equals("FALSE") ) check=true;
             }
 
              if(check)System.exit(0);
