@@ -31,6 +31,7 @@ public class WarehouseToAggregate {
 //                Kiểm tra còn dòng config nào chưa chạy không?
                 while (resultSet.next()) {
                     idConfig = resultSet.getString("id").trim();
+                    String folder_name = resultSet.getString("folder_name").trim();
                     // Cập nhật status AGGREGATE_LOAD config table
                     Connector.updateStatusConfig(configConnection, idConfig, "AGGREGATE_LOAD");
 
@@ -40,7 +41,7 @@ public class WarehouseToAggregate {
                         if (stagingConnection.isValid(5)) {
                             //Truncate  aggregate table and transfer data from records to aggregate
                             // Đọc toàn bộ nội dung file
-                            String sql = Files.readString(Path.of("insert_data_Aggregate.sql"));
+                            String sql = Files.readString(Path.of(folder_name+"\\insert_data_Aggregate.sql"));
                             // Tách thành mảng các câu lệnh riêng lẻ
                             String[] commands = sql.split(";");
                             // Duyệt và thực thi từng câu lệnh
@@ -52,7 +53,6 @@ public class WarehouseToAggregate {
                                 }
                                 // Thực thi câu lệnh SQL
                                 try (PreparedStatement ps = stagingConnection.prepareStatement(command)) {
-                                    System.out.println(command);
                                     ps.executeUpdate();
                                 }
                             }

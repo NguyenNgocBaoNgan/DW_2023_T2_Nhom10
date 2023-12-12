@@ -22,7 +22,8 @@ import java.util.Locale;
 
 public class Crawler {
 
-    String FILE_LOCATION;
+    String file_download;
+    String folder_sql;
     String province = "";
 
     public static void main(String[] args) throws IOException, ParseException {
@@ -33,98 +34,93 @@ public class Crawler {
 
     public void startCrawl() {
         try (Connection connection = Connector.getControlConnection()) {
+            ResultSet resultSet = Connector.getResultSetWithConfigFlags(connection, "TRUE", "PREPARED");
+            while (resultSet.next()) {
+                folder_sql = resultSet.getString("folder_name");
+                file_download = resultSet.getString("download_path");
+                String idConfig = resultSet.getString("id").trim();
+                String email = resultSet.getString("error_to_email").trim();
+                if (Files.exists(Paths.get(file_download)) && Files.isDirectory(Paths.get(file_download))) {
+                    Connector.updateStatusConfig(connection, idConfig, "CRAWLING");
 
-            String getConfig = readFileAsString("get_config.sql");
-            try (PreparedStatement preparedStatement = connection.prepareStatement(getConfig)) {
-                preparedStatement.setString(1, "TRUE");//flag
-                preparedStatement.setString(2, "PREPARED");//status
-                try (ResultSet resultSet = preparedStatement.executeQuery()) {
-                    if (resultSet.isBeforeFirst()) {
-                        do {
-                            resultSet.next();
-                            FILE_LOCATION = resultSet.getString("download_path");
-                            String idConfig = resultSet.getString("id").trim();
-                            String email = resultSet.getString("error_to_email").trim();
-                            if (Files.exists(Paths.get(FILE_LOCATION)) && Files.isDirectory(Paths.get(FILE_LOCATION))) {
-                                Connector.updateStatusConfig(connection, idConfig, "CRAWLING");
+                    String sqlGetLinks = readFileAsString(folder_sql + "\\get_link.sql");
+                    try (PreparedStatement preparedStatement1 = connection.prepareStatement(sqlGetLinks)) {
+                        try (ResultSet links = preparedStatement1.executeQuery()) {
 
-                                String sqlGetLinks = readFileAsString("get_link.sql");
-                                try (PreparedStatement preparedStatement1 = connection.prepareStatement(sqlGetLinks)) {
-                                    try (ResultSet links = preparedStatement1.executeQuery()) {
+                            while (links.next()) {
+                                String link = links.getString("link");
+                                String content = crawl(link, new ArrayList<>());
+                                if (content != null) {
+                                    exportData(content);
+                                } else {
+                                    //Link error
+                                    String idLink = links.getString("id");
+                                    Connector.updateFlagDataLinks(connection, idLink, "FALSE");
+                                    System.out.println("CRAWL FAILED");
 
-                                        while (links.next()) {
-                                            String link = links.getString("link");
-                                            String content = crawl(link, new ArrayList<>());
-                                            if (content != null) {
-                                                exportData(content);
-                                            } else {
-                                                //Link error
-                                                String idLink = links.getString("id");
-                                                Connector.updateFlagDataLinks(connection, idLink, "FALSE");
-                                                System.out.println("CRAWL FAILED");
+                                    Connector.writeLog(connection,
+                                            "CRAWL",
+                                            "Get data from web",
+                                            idConfig,
+                                            "ERR",
+                                            "Error with link at id is" + idLink);
+                                    String subject = "Error: Issue Retrieving Data from Web";
+                                    String body = "Dear Admin,\n\n" +
+                                            "We encountered an error while trying to retrieve data from the web in one of our steps. The specific issue is as follows:\n\n" +
+                                            "Error Details: An error occurred with the link identified by ID " + idLink + ".\n\n" +
+                                            "Please review the link associated with ID " + idLink + " to identify and resolve the problem.\n" +
+                                            "If you need further assistance, feel free to contact our support team.\n\n" +
+                                            "Thank you,\nYour Application Team";
 
-                                                Connector.writeLog(connection,
-                                                        "CRAWL",
-                                                        "Get data from web",
-                                                        idConfig,
-                                                        "ERR",
-                                                        "Error with link at id is" + idLink);
-                                                String subject = "Error: Issue Retrieving Data from Web";
-                                                String body = "Dear Admin,\n\n" +
-                                                        "We encountered an error while trying to retrieve data from the web in one of our steps. The specific issue is as follows:\n\n" +
-                                                        "Error Details: An error occurred with the link identified by ID " + idLink + ".\n\n" +
-                                                        "Please review the link associated with ID " + idLink + " to identify and resolve the problem.\n" +
-                                                        "If you need further assistance, feel free to contact our support team.\n\n" +
-                                                        "Thank you,\nYour Application Team";
+                                    SendEmail.sendMail(email, subject, body);
 
-                                                SendEmail.sendMail(email, subject, body);
-
-                                            }
-                                        };
-                                        //Success
-                                        Connector.updateStatusConfig(connection, idConfig, "CRAWLED");
-                                        Connector.writeLog(connection,
-                                                "CRAWL",
-                                                "Get data from web",
-                                                idConfig,
-                                                "SUCCESS",
-                                                "");
-                                    }
                                 }
-                            } else {
-                                // can't find the download path
-                                Connector.updateFlagConfig(connection, idConfig, "FALSE");
-                                Connector.writeLog(connection,
-                                        "CRAWL",
-                                        "Get data from web",
-                                        idConfig,
-                                        "ERR",
-                                        "Download path does not exist or failed to access path");
-                                String subject = "Error: Issue Retrieving Data from Web";
-                                String body = "Dear Admin,\n\n" +
-                                        "We encountered an error while trying to retrieve data from the web in one of our steps. The issue is as follows:\n\n" +
-                                        "Error Message: Download path does not exist or failed to access the path.\n\n" +
-                                        "Please ensure that the specified download path exists in configuration table.\n" +
-                                        "If you need further assistance, feel free to contact our support team.\n\n" +
-                                        "Thank you,\nYour Application Team";
-
-                                SendEmail.sendMail(email, subject, body);
-
                             }
-                        } while (resultSet.next());
+                            ;
+                            //Success
+                            Connector.updateStatusConfig(connection, idConfig, "CRAWLED");
+                            Connector.writeLog(connection,
+                                    "CRAWL",
+                                    "Get data from web",
+                                    idConfig,
+                                    "SUCCESS",
+                                    "");
+                        }
                     }
-                    connection.close();
+                } else {
+                    // can't find the download path
+                    Connector.updateFlagConfig(connection, idConfig, "FALSE");
+                    Connector.writeLog(connection,
+                            "CRAWL",
+                            "Get data from web",
+                            idConfig,
+                            "ERR",
+                            "Download path does not exist or failed to access path");
+                    String subject = "Error: Issue Retrieving Data from Web";
+                    String body = "Dear Admin,\n\n" +
+                            "We encountered an error while trying to retrieve data from the web in one of our steps. The issue is as follows:\n\n" +
+                            "Error Message: Download path does not exist or failed to access the path.\n\n" +
+                            "Please ensure that the specified download path exists in configuration table.\n" +
+                            "If you need further assistance, feel free to contact our support team.\n\n" +
+                            "Thank you,\nYour Application Team";
+
+                    SendEmail.sendMail(email, subject, body);
+
                 }
             }
+            ;
+            connection.close();
+
         } catch (SQLException ignore) {
+        } catch (Exception e) {
+            throw new RuntimeException(e);
         }
     }
 
     public void exportData(String content) {
         String fileName = "Crawl_" + province + "_" + getTimeNow() + "_" + getDateNow();
         fileName = fileName.replace(":", "_");
-        String file_path = FILE_LOCATION + "\\" + fileName + ".csv";
-        System.out.println("File path: " + file_path);
+        String file_path = file_download + "\\" + fileName + ".csv";
         File file = new File(file_path);
         if (!file.exists()) {
             try {
@@ -146,14 +142,11 @@ public class Crawler {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-
-        System.out.println("CRAWL SUCCESSED");
-
     }
 
     private void createFile(String path) throws FileNotFoundException {
         new OutputStreamWriter(new FileOutputStream(path), StandardCharsets.UTF_8);
-        System.out.println("CREATE FILE CSV SUCCESS.");
+        System.out.println("CRAWLING");
 
     }
 
@@ -176,7 +169,6 @@ public class Crawler {
             String cityName = cityElement != null ? cityElement.text() : null;
             province = cityName;
 
-            System.out.println(doc.select("div.accordion-item.hour").size() + " " + "doc.select");
 
             String timeRecord = getTimeNow();
             String dateRecord = getDateNow();
@@ -431,9 +423,6 @@ public class Crawler {
                 }
 
             }
-
-
-            System.out.println(data);
             return data.toString();
         }
         return null;
@@ -477,8 +466,6 @@ public class Crawler {
             Document doc = con.get();
 
             if (con.response().statusCode() == 200) {
-                System.out.println("Link: " + url);
-                System.out.println(doc.title());
                 v.add(url);
 
                 return doc;

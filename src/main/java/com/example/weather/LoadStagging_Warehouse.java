@@ -12,9 +12,9 @@ import java.util.Map;
 
 public class LoadStagging_Warehouse {
 
-    private static Map<String, String> sqlQueries = readSqlQueriesFromFile("loading_to_wh.sql");
+    private static Map<String, String> sqlQueries = readSqlQueriesFromFile(Connector.getCurrentDir() + "\\loading_to_wh.sql");
 
-    public void startLoading()  throws SQLException{
+    public void startLoading() throws Exception {
         // Kiểm tra kết nối với control database
         Connection controlConnection = Connector.getControlConnection();
         //Connection controlConnection = connectToDatabase(CONTROL_DB_URL, CONTROL_DB_USERNAME, CONTROL_DB_PASSWORD);
@@ -23,81 +23,72 @@ public class LoadStagging_Warehouse {
         }
 
         // Lấy dữ liệu từ bảng config
-        ResultSet configData = executeQuery(controlConnection, sqlQueries.get("SQL_SELECT_CONFIG_DATA"));
+        ResultSet configData = Connector.getResultSetWithConfigFlags(controlConnection, "TRUE", "TRANSFORMED");
         //System.out.println(sqlQueries.get("SQL_CHECK_DATA_EXISTS"));
         //
 
-        // Cập nhật trạng thái của các config đang chạy
         while (configData.next()) {
             int configId = configData.getInt("id");
-            String status = configData.getString("status");
-            String flag = configData.getString("flag");
 
 
-            if (flag.equals("TRUE") && status.equals("TRANSFORMED")) {
-                // Nếu trạng thái là TRANSFORMED, thì cập nhật trạng thái thành LOADING
+            // Cập nhật status  LOADING config table
+            Connector.updateStatusConfig(controlConnection, String.valueOf(configId), "LOADING");
+            //updateConfigStatus(controlConnection, configId, "LOADING", flag);
 
+            // Kiểm tra kết nối với staging database
+            String hostName = "localhost";
+            String dbName = configData.getString("WH_db_name");
+            String username = configData.getString("WH_source_username");
+            String password = configData.getString("WH_source_password");
+            Connection whConnection = Connector.getConnection(hostName, dbName, username, password);
 
-                Connector.updateStatusConfig(controlConnection, String.valueOf(configId), "LOADING");
-                //updateConfigStatus(controlConnection, configId, "LOADING", flag);
+            // Connection whConnection = connectToDatabase(STAGING_DB_URL, STAGING_DB_USERNAME, STAGING_DB_PASSWORD);
 
-                // Kiểm tra kết nối với staging database
-                String hostName = "localhost";
-                String dbName = configData.getString("WH_db_name");
-                String username = configData.getString("WH_source_username");
-                String password = configData.getString("WH_source_password");
-                Connection whConnection = Connector.getConnection(hostName, dbName, username, password);
+            // Lấy dữ liệu từ bảng stagging
+            //Kiểm tra kết nối có thành công hay không?
+            if (whConnection == null) {
+                System.out.println("Không thể kết nối với weather_warehouse database");
 
-                // Connection whConnection = connectToDatabase(STAGING_DB_URL, STAGING_DB_USERNAME, STAGING_DB_PASSWORD);
-
-                // Lấy dữ liệu từ bảng stagging
-
-                if (whConnection == null) {
-                    System.out.println("Không thể kết nối với weather_warehouse database");
-
-                    // Cập nhật Flag=FALSE trong bảng config
-                    Connector.updateFlagConfig(controlConnection, String.valueOf(configId), "FALSE");
+                // Cập nhật Flag=FALSE trong bảng config
+                Connector.updateFlagConfig(controlConnection, String.valueOf(configId), "FALSE");
 //                    updateFlagInConfig(controlConnection, configId, "FALSE");
 
-                    // Ghi vào log sự kiện cập nhật flag
-                    Connector.writeLog(controlConnection, "Data Loading", "Connection to weather_warehouse failed", String.valueOf(configId), "ERROR", "Can't connect to DB");
-                    //logEvent(controlConnection, configId, "Update Flag to FALSE", "Connection to Staging DB failed", "ERROR");
+                // Ghi vào log sự kiện cập nhật flag
+                Connector.writeLog(controlConnection, "Data Loading", "Connection to weather_warehouse failed", String.valueOf(configId), "ERROR", "Can't connect to DB");
+                //logEvent(controlConnection, configId, "Update Flag to FALSE", "Connection to Staging DB failed", "ERROR");
 
-                    // Gửi mail thông báo
+                // Gửi mail thông báo
 //                    SendEmail.sendMail("Config ID " + configId + " không kết nối với staging database");
-                    SendEmail.sendMail("20130331@st.hcmuaf.edu.vn", "Important Error: Action Required", "Dear User,\n\n"
-                            + "We wanted to inform you about an important error that requires your attention.\n"
-                            + "Please review the error below:\n\n"
-                            + "Error: [Connection to weather_warehouse failed]\n\n"
-                            + "Thank you for your cooperation.\n"
-                            + "Best regards,\n"
-                            + "Ngan");
+                SendEmail.sendMail("20130331@st.hcmuaf.edu.vn", "Important Error: Action Required", "Dear User,\n\n"
+                        + "We wanted to inform you about an important error that requires your attention.\n"
+                        + "Please review the error below:\n\n"
+                        + "Error: [Connection to weather_warehouse failed]\n\n"
+                        + "Thank you for your cooperation.\n"
+                        + "Best regards,\n"
+                        + "Ngan");
 
-                    // Đóng kết nối với control database và kết thúc
-                    closeConnection(controlConnection);
-                    return;
-                }
-
-
-                //Load dữ liệu từ staging sang record
-                transferData(whConnection);
-
-                //check dữ liệu và gán is_expired = True
-                updateIsExpired(whConnection);
-
-                // Cập nhật trạng thái của config thành LOADED
-                Connector.updateStatusConfig(controlConnection, String.valueOf(configId), "LOADED");
-                //updateConfigStatus(controlConnection, configId, "", flag);
-                //Viết log
-                Connector.writeLog(controlConnection, "Data Loading", "Loaded data to warehouse table", String.valueOf(configId), "Success", "No errors");
-                //Cập nhật status Config là Prepared
-                Connector.updateStatusConfig(controlConnection, String.valueOf(configId), "PREPARED");
-
-                // Đóng kết nối với staging database
-                closeConnection(whConnection);
-
-
+                // Đóng kết nối với control database và kết thúc
+                closeConnection(controlConnection);
+                return;
             }
+
+
+            //Load dữ liệu từ staging sang record
+            transferData(whConnection);
+            updateIsExpired(whConnection);
+
+            // Cập nhật trạng thái của config thành LOADED
+            Connector.updateStatusConfig(controlConnection, String.valueOf(configId), "LOADED");
+            //updateConfigStatus(controlConnection, configId, "", flag);
+            //Viết log
+            Connector.writeLog(controlConnection, "Data Loading", "Loaded data to warehouse table", String.valueOf(configId), "Success", "No errors");
+            //Cập nhật status Config là Prepared
+            Connector.updateStatusConfig(controlConnection, String.valueOf(configId), "PREPARED");
+
+            // Đóng kết nối với staging database
+            closeConnection(whConnection);
+
+
         }
 
 
@@ -105,9 +96,9 @@ public class LoadStagging_Warehouse {
         closeConnection(controlConnection);
     }
 
-    public static void main(String[] args) throws SQLException {
-       LoadStagging_Warehouse loadStaggingWarehouse = new LoadStagging_Warehouse();
-       loadStaggingWarehouse.startLoading();
+    public static void main(String[] args) throws Exception {
+        LoadStagging_Warehouse loadStaggingWarehouse = new LoadStagging_Warehouse();
+        loadStaggingWarehouse.startLoading();
     }
 
     private static Connection connectToDatabase(String url, String username, String password) throws SQLException {

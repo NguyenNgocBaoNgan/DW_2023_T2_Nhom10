@@ -1,17 +1,22 @@
 package com.example.weather;
 
 import com.example.weather.DAO.Connector;
+
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.List;
-import java.nio.file.*;
 import java.util.stream.Collectors;
 
 public class Extract {
+    String folder_name;
 
     public Extract() {
 
@@ -24,12 +29,12 @@ public class Extract {
             if (configConnection.isValid(5)) {
                 // Lấy dữ liệu bảng config có Flag = TRUE Status = CRAWLED
                 ResultSet resultSet = Connector.getResultSetWithConfigFlags(configConnection, "TRUE", "CRAWLED");
-//              Kiểm tra còn dòng config nào status= CRAWLED và FLAG = TRUE không?
                 String csv_folder_path = "";
                 String idConfig = "";
+//              Kiểm tra còn dòng config nào status= CRAWLED và FLAG = TRUE không?
                 while (resultSet.next()) {
-                     csv_folder_path = resultSet.getString("download_path");
-                     idConfig = resultSet.getString("id").trim();
+                    csv_folder_path = resultSet.getString("download_path");
+                    idConfig = resultSet.getString("id").trim();
                     // Cập nhật status EXTRACTING config table
                     Connector.updateStatusConfig(configConnection, idConfig, "EXTRACTING");
                     // Kết nối với wearther_warehouse db
@@ -41,7 +46,8 @@ public class Extract {
                         //      Kiểm tra kết nối có thành công hay không?
                         if (stagingConnection.isValid(5)) {
                             // Truncate bảng records_staging
-                            List<String> sqlLines = Files.readAllLines(Path.of("truncate_records_staging.sql"));
+                            folder_name = resultSet.getString("folder_name");
+                            List<String> sqlLines = Files.readAllLines(Path.of(folder_name+"\\truncate_records_staging.sql"));
                             String truncateQuery = String.join(" ", sqlLines);
                             PreparedStatement preparedStatement = stagingConnection.prepareStatement(truncateQuery);
                             preparedStatement.executeUpdate();
@@ -55,7 +61,7 @@ public class Extract {
                                 processAndInsertData(stagingConnection, csvFiles);
 //                          Cập nhật status EXTRACTED trong wearther_warehouse.db
                                 Connector.updateStatusConfig(configConnection, idConfig, "EXTRACTED");
-  //                            Đóng kết nối wearther_warehouse.db
+                                //                            Đóng kết nối wearther_warehouse.db
                                 stagingConnection.close();
                             } else {
                                 // Cập nhật status ERR config table
@@ -155,8 +161,8 @@ public class Extract {
                 String accumulation = data[14];
 
                 // Lưu dữ liệu vào cơ sở dữ liệu
-                List<String> sqlLines = Files.readAllLines(Path.of("insertDataToRecords_staging.sql"));
-                System.out.println(sqlLines + " sql nè");
+                List<String> sqlLines = Files.readAllLines(Path.of(folder_name+"\\insertDataToRecords_staging.sql"));
+                System.out.println("Saving****");
                 String insertQuery = String.join(" ", sqlLines);
 
                 try (PreparedStatement preparedStatement = connection.prepareStatement(insertQuery)) {
