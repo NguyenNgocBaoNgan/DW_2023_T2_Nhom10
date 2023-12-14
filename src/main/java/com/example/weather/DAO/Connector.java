@@ -159,40 +159,38 @@ public class Connector {
 
     // Phương thức trả về đối tượng ResultSet
     public static ResultSet getResultSetWithConfigFlags(Connection configConnection, String flag, String status) throws Exception {
-        // Đọc nội dung của tệp vào một chuỗi
         String selectQuery = readFileAsString(currentDir + "\\get_config.sql");
 
-
-        // Chuẩn bị câu truy vấn
         PreparedStatement preparedStatement = configConnection.prepareStatement(selectQuery);
         preparedStatement.setString(1, flag);
         preparedStatement.setString(2, status);
         ResultSet result = preparedStatement.executeQuery();
+        boolean check = false;
         if (!result.next()) {
-            // Đọc nội dung của tệp vào một chuỗi
             String selectQuery1 = readFileAsString(currentDir + "\\get_config.sql").replace("=", "<>").replace("AND", "OR");
-            // Chuẩn bị câu truy vấn
             PreparedStatement preparedStatement1 = configConnection.prepareStatement(selectQuery1);
             preparedStatement1.setString(1, flag);
             preparedStatement1.setString(2, status);
             ResultSet result1 = preparedStatement1.executeQuery();
-            boolean check = false;
+
             while (result1.next()) {
-                String recipientEmail = result1.getString("error_to_email").trim();
-                String subject = "General Notification";
-                String body = "Dear Admin,\n\n" +
-                        "We have an important notification to share with you:\n\n" +
-                        "Notification Details: There is not result " + flag + " and status is " + status + ".\n\n" +
-                        "Please review the information and take any necessary actions.\n\n" +
-                        "If you need further assistance, feel free to contact our support team.\n\n" +
-                        "Thank you,\nYour Application Team";
-                System.out.println("There is not result right and status is " + status);
-                SendEmail.sendMail(recipientEmail, subject, body);
-                if(!result1.getString("flag").equals("TRUE") && !result1.getString("status").endsWith("ED") ) check=true;
-                if(!result1.getString("flag").equals("FALSE") ) check=true;
+                if (result1.getString("flag").equals("FALSE") ||
+                        !(result1.getString("status").trim().endsWith("ED"))) {
+                    String recipientEmail = result1.getString("error_to_email").trim();
+                    String subject = "General Notification";
+                    String body = "Dear Admin,\n\n" +
+                            "We have an important notification to share with you:\n\n" +
+                            "Notification Details: There is not result " + flag + " and status is " + status + ".\n\n" +
+                            "Please review the information and take any necessary actions.\n\n" +
+                            "If you need further assistance, feel free to contact our support team.\n\n" +
+                            "Thank you,\nYour Application Team";
+                    System.out.println("There is a result with flag is "+result1.getString("flag")+" and status is " + result1.getString("status"));
+                    SendEmail.sendMail(recipientEmail, subject, body);
+                   check = true;
+                }
             }
 
-             if(check)System.exit(0);
+            if (check) System.exit(0);
         }
         // Thực hiện truy vấn và trả về ResultSet
         return preparedStatement.executeQuery();
