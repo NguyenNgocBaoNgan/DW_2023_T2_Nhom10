@@ -7,6 +7,7 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -145,7 +146,7 @@ public class Extract {
 
     public void processAndInsertData(Connection connection, List<Path> csvLines) throws SQLException, IOException {
         for (Path csv_linkString : csvLines) {
-            BufferedReader reader = new BufferedReader(new FileReader(String.valueOf(csv_linkString)));
+            BufferedReader reader = new BufferedReader(new FileReader(String.valueOf(csv_linkString), StandardCharsets.UTF_8));
             String line;
             int lineCount = 0;
 
@@ -154,6 +155,7 @@ public class Extract {
                 if (data.length >= 14) {
                     String[] city_nameStrings = data[0].split(", ");
                     String city_name = city_nameStrings[1];
+//                    System.out.println("city name: "+city_name);
                     String time_record = data[1];
                     String date_record = data[2];
                     String time_forecast = data[3];
@@ -174,6 +176,7 @@ public class Extract {
                     List<String> sqlLines = Files.readAllLines(Path.of(folder_name + "\\insertDataToRecords_staging.sql"));
                     System.out.println("Saving****");
                     String insertQuery = String.join(" ", sqlLines);
+
 
                     try (PreparedStatement preparedStatement = connection.prepareStatement(insertQuery)) {
                         preparedStatement.setString(1, city_name);

@@ -67,9 +67,9 @@ public class AggregateToDataMart {
 
                                     // Update STATUS = DATAMART_LOADED in config table
                                     Connector.updateStatusConfig(configConnection, idConfig, "DATAMART_LOADED");
-//									đóng kết nối mart db
+//									Đóng kết nối weather_mart.db
                                     martConnection.close();
-                                    //  Close staging db connections
+                                    //  Đóng kết nối weather_warehouse.db
                                     stagingConnection.close();
 
                                     // Log information
@@ -136,22 +136,22 @@ public class AggregateToDataMart {
                             // Update Flag=FALSE in config table
                             Connector.updateFlagDataLinks(configConnection, idConfig, "FALSE");
 
-                            // Log event Can't connect to Staging DB!
+                            // Log event Can't connect to weather_warehouse DB!
                             Connector.writeLog(configConnection,
                                     "AGGREGATE_TO_DATAMART",
                                     "Loading data from csv files to records_staging table",
                                     idConfig,
                                     "ERR",
-                                    "Can't connect to Staging DB!");
+                                    "Can't connect to weather_warehouse DB!");
 
                             // Send email notification
                             String toEmail = resultSet.getString("error_to_email");
-                            String subject = "Error Connecting to Staging Database";
+                            String subject = "Error Connecting to weather_warehouse Database";
 
                             String emailContent = "Dear Admin,\n\n"
-                                    + "We are experiencing difficulties connecting to the Staging Database for the data loading process. "
+                                    + "We are experiencing difficulties connecting to the weather_warehouse Database for the data loading process. "
                                     + "Unfortunately, the connection attempt has failed with the following error:\n\n"
-                                    + "Error Message: Can't connect to Staging DB\n\n"
+                                    + "Error Message: Can't connect to weather_warehouse DB\n\n"
                                     + "Our technical team is actively investigating the issue and working towards a swift resolution. "
                                     + "We appreciate your patience and understanding during this time.\n\n"
                                     + "Thank you for your cooperation.\n\n"
