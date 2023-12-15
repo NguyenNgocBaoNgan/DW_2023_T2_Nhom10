@@ -16,7 +16,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 public class Extract {
-    String folder_name;
+    static String folder_name = Connector.getCurrentDir();
 
     public Extract() {
 
@@ -46,8 +46,7 @@ public class Extract {
                         //      Kiểm tra kết nối có thành công hay không?
                         if (stagingConnection.isValid(5)) {
                             // Truncate bảng records_staging
-                            folder_name = resultSet.getString("folder_name");
-                            List<String> sqlLines = Files.readAllLines(Path.of(folder_name+"\\truncate_records_staging.sql"));
+                            List<String> sqlLines = Files.readAllLines(Path.of(folder_name + "\\truncate_records_staging.sql"));
                             String truncateQuery = String.join(" ", sqlLines);
                             PreparedStatement preparedStatement = stagingConnection.prepareStatement(truncateQuery);
                             preparedStatement.executeUpdate();
@@ -142,9 +141,8 @@ public class Extract {
 
             while ((line = reader.readLine()) != null && lineCount < 24) {
                 String[] data = line.split(";");
-
-                String[] city_nameStrings = data[0].split(", ");
-                String city_name = city_nameStrings[1];
+                if (data.length < 14) break;
+                String city_name = data[0].replace(",", " ");
                 String time_record = data[1];
                 String date_record = data[2];
                 String time_forecast = data[3];
@@ -161,7 +159,7 @@ public class Extract {
                 String accumulation = data[14];
 
                 // Lưu dữ liệu vào cơ sở dữ liệu
-                List<String> sqlLines = Files.readAllLines(Path.of(folder_name+"\\insertDataToRecords_staging.sql"));
+                List<String> sqlLines = Files.readAllLines(Path.of(folder_name + "\\insertDataToRecords_staging.sql"));
                 System.out.println("Saving****");
                 String insertQuery = String.join(" ", sqlLines);
 

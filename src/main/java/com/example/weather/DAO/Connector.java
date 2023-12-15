@@ -165,36 +165,43 @@ public class Connector {
         preparedStatement.setString(1, flag);
         preparedStatement.setString(2, status);
         ResultSet result = preparedStatement.executeQuery();
-        boolean check = false;
-        if (!result.next()) {
-            String selectQuery1 = readFileAsString(currentDir + "\\get_config.sql").replace("=", "<>").replace("AND", "OR");
-            PreparedStatement preparedStatement1 = configConnection.prepareStatement(selectQuery1);
-            preparedStatement1.setString(1, flag);
-            preparedStatement1.setString(2, status);
-            ResultSet result1 = preparedStatement1.executeQuery();
+        // Thực hiện truy vấn và trả về ResultSet
+        return preparedStatement.executeQuery();
+    }
 
-            while (result1.next()) {
-                if (result1.getString("flag").equals("FALSE") ||
-                        !(result1.getString("status").trim().endsWith("ED"))) {
-                    String recipientEmail = result1.getString("error_to_email").trim();
+    public static void checkAvailable(Connection configConnection) {
+        boolean check = false;
+        String selectQuery = readFileAsString(currentDir + "\\get_config.sql").replace("=", "<>").replace("AND", "OR");
+        PreparedStatement preparedStatement = null;
+        try {
+            preparedStatement
+                    = configConnection.prepareStatement(selectQuery);
+
+            preparedStatement.setString(1, "TRUE");
+            preparedStatement.setString(2, "PREPARED");
+            ResultSet result = preparedStatement.executeQuery();
+
+            while (result.next()) {
+                if (result.getString("flag").equals("FALSE") ||
+                        !(result.getString("status").trim().endsWith("ED"))) {
+                    String recipientEmail = result.getString("error_to_email").trim();
                     String subject = "General Notification";
                     String body = "Dear Admin,\n\n" +
                             "We have an important notification to share with you:\n\n" +
-                            "Notification Details: There is not result " + flag + " and status is " + status + ".\n\n" +
+                            "Notification Details: There is a result with flag is " + result.getString("flag") + " and status is " + result.getString("status") + ".\n\n" +
                             "Please review the information and take any necessary actions.\n\n" +
                             "If you need further assistance, feel free to contact our support team.\n\n" +
                             "Thank you,\nYour Application Team";
-                    System.out.println("There is a result with flag is "+result1.getString("flag")+" and status is " + result1.getString("status"));
+                    System.out.println("There is a result with flag is " + result.getString("flag") + " and status is " + result.getString("status"));
                     SendEmail.sendMail(recipientEmail, subject, body);
-                   check = true;
+                    check = true;
                 }
             }
 
             if (check) System.exit(0);
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
         }
-        // Thực hiện truy vấn và trả về ResultSet
-        return preparedStatement.executeQuery();
-
     }
 
     public static void writeLog(Connection conn, String activityType, String description, String configId, String status, String errorDetail) throws SQLException {

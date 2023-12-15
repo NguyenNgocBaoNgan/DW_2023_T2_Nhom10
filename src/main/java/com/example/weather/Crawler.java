@@ -23,7 +23,7 @@ import java.util.Locale;
 public class Crawler {
 
     String file_download;
-    String folder_sql;
+    static String folder_sql = Connector.getCurrentDir();
     String province = "";
 
     public static void main(String[] args) throws IOException, ParseException {
@@ -34,9 +34,9 @@ public class Crawler {
 
     public void startCrawl() {
         try (Connection connection = Connector.getControlConnection()) {
+            Connector.checkAvailable(connection);
             ResultSet resultSet = Connector.getResultSetWithConfigFlags(connection, "TRUE", "PREPARED");
             while (resultSet.next()) {
-                folder_sql = resultSet.getString("folder_name");
                 file_download = resultSet.getString("download_path");
                 String idConfig = resultSet.getString("id").trim();
                 String email = resultSet.getString("error_to_email").trim();

@@ -24,16 +24,24 @@ WHERE date_record IS NULL
 
 
 UPDATE records_staging AS rs
-    LEFT JOIN (
+    LEFT JOIN
+    (
         SELECT
             rs.date_record,
-            COALESCE(dd1.date_key, dd2.date_key) AS new_date
+            CASE
+                WHEN rs.date_record NOT REGEXP '^[0-9]+$' THEN COALESCE(dd1.date_key, dd2.date_key)
+                ELSE rs.date_record
+                END AS new_date
         FROM records_staging rs
-                 LEFT JOIN date_dim dd1 ON rs.date_record REGEXP '^\d+$' AND rs.date_record = dd1.date_key
-                 LEFT JOIN date_dim dd2 ON dd2.full_date = STR_TO_DATE(rs.date_record, '%d-%m-%Y')
-    ) AS subquery ON rs.date_record = subquery.date_record
-SET rs.date_record = subquery.new_date;
-
+                 LEFT JOIN date_dim dd1
+                           ON rs.date_record REGEXP '^[0-9]+$'
+                               AND rs.date_record = dd1.date_key
+                 LEFT JOIN date_dim dd2
+                           ON dd2.full_date = STR_TO_DATE(rs.date_record, '%d-%m-%Y')
+    ) AS subquery
+    ON rs.date_record = subquery.date_record
+SET rs.date_record = subquery.new_date
+WHERE subquery.new_date IS NOT NULL;
 
 DELETE
 FROM records_staging
@@ -45,16 +53,25 @@ FROM records_staging
 WHERE date_forcast IS NULL
    OR date_forcast = '';
 
-UPDATE records_staging rs
-    LEFT JOIN (
+UPDATE records_staging AS rs
+    LEFT JOIN
+    (
         SELECT
             rs.date_forcast,
-            COALESCE(dd1.date_key, dd2.date_key) AS new_date
+            CASE
+                WHEN rs.date_forcast NOT REGEXP '^[0-9]+$' THEN COALESCE(dd1.date_key, dd2.date_key)
+                ELSE rs.date_forcast
+                END AS new_date
         FROM records_staging rs
-                 LEFT JOIN date_dim dd1 ON rs.date_forcast REGEXP '^\d+$' AND rs.date_forcast = dd1.date_key
-                 LEFT JOIN date_dim dd2 ON dd2.full_date = STR_TO_DATE(rs.date_forcast, '%d-%m-%Y')
-    ) AS subquery ON rs.date_forcast = subquery.date_forcast
-SET rs.date_forcast = subquery.new_date;
+                 LEFT JOIN date_dim dd1
+                           ON rs.date_forcast REGEXP '^[0-9]+$'
+                               AND rs.date_forcast = dd1.date_key
+                 LEFT JOIN date_dim dd2
+                           ON dd2.full_date = STR_TO_DATE(rs.date_forcast, '%d-%m-%Y')
+    ) AS subquery
+    ON rs.date_forcast = subquery.date_forcast
+SET rs.date_forcast = subquery.new_date
+WHERE subquery.new_date IS NOT NULL;
 
 
 UPDATE records_staging r1

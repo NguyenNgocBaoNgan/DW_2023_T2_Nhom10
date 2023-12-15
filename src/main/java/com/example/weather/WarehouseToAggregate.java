@@ -15,6 +15,7 @@ public class WarehouseToAggregate {
     private static final String STAGING_DB_NAME = "weather_warehouse";
     private static final String USERNAME = "root";
     private static final String PASSWORD = "";
+    String folder_name = Connector.getCurrentDir();
 
     public WarehouseToAggregate() {
 
@@ -31,7 +32,6 @@ public class WarehouseToAggregate {
 //                Kiểm tra còn dòng config nào chưa chạy không?
                 while (resultSet.next()) {
                     idConfig = resultSet.getString("id").trim();
-                    String folder_name = resultSet.getString("folder_name").trim();
                     // Cập nhật status AGGREGATE_LOAD config table
                     Connector.updateStatusConfig(configConnection, idConfig, "AGGREGATE_LOAD");
 
