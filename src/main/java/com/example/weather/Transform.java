@@ -9,9 +9,8 @@ import java.nio.file.Paths;
 import java.sql.*;
 
 public class Transform {
-    String folder_name;
 
-    static String currentDir = System.getProperty("user.dir");
+    static String folder_name = Connector.getCurrentDir();
 
     public void startTransform() {
         try (Connection configConnection = Connector.getControlConnection()) {
@@ -20,7 +19,6 @@ public class Transform {
                 do {
                     resultSet.next();
                     String idConfig = resultSet.getString("id").trim();
-                    folder_name = resultSet.getString("folder_name");
 
                     String recipientEmail = resultSet.getString("error_to_email").trim();
                     if (Files.exists(Paths.get(folder_name)) && Files.isDirectory(Paths.get(folder_name))) {
@@ -30,7 +28,6 @@ public class Transform {
                         String username = resultSet.getString("WH_source_username");
                         String password = resultSet.getString("WH_source_password");
                         try (Connection WHConnection = Connector.getConnection(hostName, dbName, username, password)) {
-
                             if (Files.exists(Path.of((folder_name + "\\transform_data.sql")))) {
                                 String sqlTransform = readFileAsString(folder_name + "\\transform_data.sql");
 

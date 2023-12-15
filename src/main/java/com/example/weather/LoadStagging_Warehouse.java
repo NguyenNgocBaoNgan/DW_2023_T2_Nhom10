@@ -145,7 +145,6 @@ public class LoadStagging_Warehouse {
             // Câu lệnh SQL để cập nhật
             String sqlUpdate = sqlQueries.get("SQL_CHECK_DATA_EXISTS");
 
-            connection.setAutoCommit(false);
             // Chuẩn bị câu lệnh
             preparedStatement = connection.prepareStatement(sqlUpdate);
 

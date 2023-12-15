@@ -8,6 +8,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 
 public class AggregateToDataMart {
+    String folder_name =Connector.getCurrentDir();
     public AggregateToDataMart() {
     }
 
@@ -40,7 +41,6 @@ public class AggregateToDataMart {
                             try (Connection martConnection = Connector.getConnection(hostName1, dbName1, username1, password1)) {
                                 //      Kiểm tra kết nối có thành công hay không?
                                 if (martConnection.isValid(5)) {
-                                    String folder_name = resultSet.getString("folder_name");
                                     // Transfer data to weather_hours_records
                                     String insertSql = Connector.readFileAsString(folder_name+"\\insert_weather_hour_records.sql");
                                     PreparedStatement psInsert = martConnection.prepareStatement(insertSql);

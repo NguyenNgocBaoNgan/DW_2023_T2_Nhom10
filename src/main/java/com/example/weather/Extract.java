@@ -3,8 +3,10 @@ package com.example.weather;
 import com.example.weather.DAO.Connector;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
+import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -16,7 +18,15 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 public class Extract {
-    String folder_name;
+    static String folder_name;
+
+    static {
+        try {
+            folder_name = new File(Run.class.getProtectionDomain().getCodeSource().getLocation().toURI().getPath()).getParent().trim().replace("/", "\\").replace("target", "");
+        } catch (URISyntaxException e) {
+            throw new RuntimeException(e);
+        }
+    }
 
     public Extract() {
 
@@ -46,8 +56,7 @@ public class Extract {
                         //      Kiểm tra kết nối có thành công hay không?
                         if (stagingConnection.isValid(5)) {
                             // Truncate bảng records_staging
-                            folder_name = resultSet.getString("folder_name");
-                            List<String> sqlLines = Files.readAllLines(Path.of(folder_name+"\\truncate_records_staging.sql"));
+                            List<String> sqlLines = Files.readAllLines(Path.of(folder_name + "\\truncate_records_staging.sql"));
                             String truncateQuery = String.join(" ", sqlLines);
                             PreparedStatement preparedStatement = stagingConnection.prepareStatement(truncateQuery);
                             preparedStatement.executeUpdate();
@@ -142,47 +151,49 @@ public class Extract {
 
             while ((line = reader.readLine()) != null && lineCount < 24) {
                 String[] data = line.split(";");
+                if (data.length >= 14) {
+                    String[] city_nameStrings = data[0].split(", ");
+                    String city_name = city_nameStrings[1];
+                    String time_record = data[1];
+                    String date_record = data[2];
+                    String time_forecast = data[3];
+                    String date_forecast = data[4];
+                    String temperature = data[5];
+                    String feel_like = data[6];
+                    String description = data[7];
+                    String wind_direction = data[8];
+                    String wind_speed = data[9];
+                    String humidity = data[10];
+                    String uv_index = data[11];
+                    String cloud_cover = data[12];
+                    String precipitation = data[13];
+                    String accumulation = data[14];
 
-                String[] city_nameStrings = data[0].split(", ");
-                String city_name = city_nameStrings[1];
-                String time_record = data[1];
-                String date_record = data[2];
-                String time_forecast = data[3];
-                String date_forecast = data[4];
-                String temperature = data[5];
-                String feel_like = data[6];
-                String description = data[7];
-                String wind_direction = data[8];
-                String wind_speed = data[9];
-                String humidity = data[10];
-                String uv_index = data[11];
-                String cloud_cover = data[12];
-                String precipitation = data[13];
-                String accumulation = data[14];
 
-                // Lưu dữ liệu vào cơ sở dữ liệu
-                List<String> sqlLines = Files.readAllLines(Path.of(folder_name+"\\insertDataToRecords_staging.sql"));
-                System.out.println("Saving****");
-                String insertQuery = String.join(" ", sqlLines);
+                    // Lưu dữ liệu vào cơ sở dữ liệu
+                    List<String> sqlLines = Files.readAllLines(Path.of(folder_name + "\\insertDataToRecords_staging.sql"));
+                    System.out.println("Saving****");
+                    String insertQuery = String.join(" ", sqlLines);
 
-                try (PreparedStatement preparedStatement = connection.prepareStatement(insertQuery)) {
-                    preparedStatement.setString(1, city_name);
-                    preparedStatement.setString(2, time_record);
-                    preparedStatement.setString(3, date_record);
-                    preparedStatement.setString(4, time_forecast);
-                    preparedStatement.setString(5, date_forecast);
-                    preparedStatement.setString(6, temperature);
-                    preparedStatement.setString(7, feel_like);
-                    preparedStatement.setString(8, description);
-                    preparedStatement.setString(9, wind_direction);
-                    preparedStatement.setString(10, wind_speed);
-                    preparedStatement.setString(11, humidity);
-                    preparedStatement.setString(12, uv_index);
-                    preparedStatement.setString(13, cloud_cover);
-                    preparedStatement.setString(14, precipitation);
-                    preparedStatement.setString(15, accumulation);
+                    try (PreparedStatement preparedStatement = connection.prepareStatement(insertQuery)) {
+                        preparedStatement.setString(1, city_name);
+                        preparedStatement.setString(2, time_record);
+                        preparedStatement.setString(3, date_record);
+                        preparedStatement.setString(4, time_forecast);
+                        preparedStatement.setString(5, date_forecast);
+                        preparedStatement.setString(6, temperature);
+                        preparedStatement.setString(7, feel_like);
+                        preparedStatement.setString(8, description);
+                        preparedStatement.setString(9, wind_direction);
+                        preparedStatement.setString(10, wind_speed);
+                        preparedStatement.setString(11, humidity);
+                        preparedStatement.setString(12, uv_index);
+                        preparedStatement.setString(13, cloud_cover);
+                        preparedStatement.setString(14, precipitation);
+                        preparedStatement.setString(15, accumulation);
 
-                    preparedStatement.executeUpdate();
+                        preparedStatement.executeUpdate();
+                    }
                 }
                 lineCount++;
 
