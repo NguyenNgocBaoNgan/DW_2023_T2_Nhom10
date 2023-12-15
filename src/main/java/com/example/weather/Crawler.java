@@ -108,7 +108,7 @@ public class Crawler {
 
                 }
             }
-            ;
+
             connection.close();
 
         } catch (SQLException ignore) {
