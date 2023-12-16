@@ -267,4 +267,4 @@ WHERE (r1.precipitation IS NULL OR r1.precipitation = '')
 UPDATE records_staging
 SET accumulation=0
 WHERE accumulation IS NULL
-   OR accumulation = '';
+   OR accumulation = ''
