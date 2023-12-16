@@ -6,13 +6,13 @@ import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 
 import java.io.*;
+import java.net.InetAddress;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.text.ParseException;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -33,87 +33,136 @@ public class Crawler {
 
 
     public void startCrawl() {
+        //Kết nối control.db
+        //Kiểm tra kết nối control.db có thành công hay không?
         try (Connection connection = Connector.getControlConnection()) {
-            Connector.checkAvailable(connection);
-            ResultSet resultSet = Connector.getResultSetWithConfigFlags(connection, "TRUE", "PREPARED");
-            while (resultSet.next()) {
-                file_download = resultSet.getString("download_path");
-                String idConfig = resultSet.getString("id").trim();
-                String email = resultSet.getString("error_to_email").trim();
-                if (Files.exists(Paths.get(file_download)) && Files.isDirectory(Paths.get(file_download))) {
-                    Connector.updateStatusConfig(connection, idConfig, "CRAWLING");
+            try {
+                //Kiểm tra có kết nối internet hay không?
+                InetAddress.getByName("www.google.com").isReachable(5000);
+                //Thực hiện checkAvailable()
+                Connector.checkAvailable(connection);
+                //Lấy dữ liệu bảng configuration có Flag = TRUE Status = PREPARED
+                ResultSet resultSet = Connector.getResultSetWithConfigFlags(connection, "TRUE", "PREPARED");
+                //Kiểm tra có dữ liệu bảng configuration hay không?
+                while (resultSet.next()) {
+                    //Lấy đường dẫn thư mục lưu file csv
+                    file_download = resultSet.getString("download_path");
+                    String idConfig = resultSet.getString("id").trim();
+                    String email = resultSet.getString("error_to_email").trim();
+                    //Kiểm tra đường dẫn có tồn tại hoặc có phải thư mục hay không?
+                    if (Files.exists(Paths.get(file_download)) && Files.isDirectory(Paths.get(file_download))) {
+                        //Cập nhật status CRAWLING configuration table
+                        Connector.updateStatusConfig(connection, idConfig, "CRAWLING");
+                        //Lấy liên kết trang web trong bảng data_link có Flag =TRUE
+                        String sqlGetLinks = readFileAsString(folder_sql + "\\get_link.sql");
+                        try (PreparedStatement preparedStatement1 = connection.prepareStatement(sqlGetLinks)) {
+                            try (ResultSet links = preparedStatement1.executeQuery()) {
+                                //Kiểm tra có còn liên kết trang web nào hay không?
+                                while (links.next()) {
+                                    String link = links.getString("link");
+                                    //Truy cập và lấy dữ liệu từ trang web
+                                    String content = crawl(link, new ArrayList<>());
+                                    //Kiểm tra dữ liệu lấy được có hay không?
+                                    if (content != null) {
+                                        //Kiểm tra có đủ dung lượng để lưu hay không?
+                                        long usableSpace = new File(file_download).getUsableSpace();
+                                        long contentSize = content.getBytes(StandardCharsets.UTF_8).length;
 
-                    String sqlGetLinks = readFileAsString(folder_sql + "\\get_link.sql");
-                    try (PreparedStatement preparedStatement1 = connection.prepareStatement(sqlGetLinks)) {
-                        try (ResultSet links = preparedStatement1.executeQuery()) {
-
-                            while (links.next()) {
-                                String link = links.getString("link");
-                                String content = crawl(link, new ArrayList<>());
-                                if (content != null) {
-                                    exportData(content);
-                                } else {
-                                    //Link error
-                                    String idLink = links.getString("id");
-                                    Connector.updateFlagDataLinks(connection, idLink, "FALSE");
-                                    System.out.println("CRAWL FAILED");
-
-                                    Connector.writeLog(connection,
-                                            "CRAWL",
-                                            "Get data from web",
-                                            idConfig,
-                                            "ERR",
-                                            "Error with link at id is" + idLink);
-                                    String subject = "Error: Issue Retrieving Data from Web";
-                                    String body = "Dear Admin,\n\n" +
-                                            "We encountered an error while trying to retrieve data from the web in one of our steps. The specific issue is as follows:\n\n" +
-                                            "Error Details: An error occurred with the link identified by ID " + idLink + ".\n\n" +
-                                            "Please review the link associated with ID " + idLink + " to identify and resolve the problem.\n" +
-                                            "If you need further assistance, feel free to contact our support team.\n\n" +
-                                            "Thank you,\nYour Application Team";
-
-                                    SendEmail.sendMail(email, subject, body);
-
+                                        if (usableSpace < contentSize) {
+                                            // Không đủ bộ nhớ để ghi dữ liệu vào file
+                                            //Ghi thông báo lỗi vào bảng log
+                                            Connector.writeLog(connection,
+                                                    "CRAWL",
+                                                    "Get data from web",
+                                                    idConfig,
+                                                    "ERR",
+                                                    "Folder is not enough memory to store");
+                                            // Gửi email thông báo lỗi
+                                            String subject = "Error: Insufficient Memory to Write Data to File";
+                                            String body = "Dear Admin,\n\n" +
+                                                    "We encountered an error while trying to write data to a file in one of our steps. The issue is as follows:\n\n" +
+                                                    "Error Message: Insufficient memory to write data to the specified file.\n\n" +
+                                                    "Please ensure that there is enough free space on the disk.\n" +
+                                                    "If you need further assistance, feel free to contact our support team.\n\n" +
+                                                    "Thank you,\nYour Application Team";
+                                            SendEmail.sendMail(email, subject, body);
+                                            break;
+                                        } else {
+                                            //Lưu dữ liệu thu thập được vào file csv với địa chỉ trong configuration
+                                            exportData(content);
+                                        }
+                                    } else {
+                                        //Kiểm tra có kết nối internet hay không
+                                        InetAddress.getByName("www.google.com").isReachable(5000);
+                                        //Cập nhật flag = FALSE bảng data_link
+                                        String idLink = links.getString("id");
+                                        Connector.updateFlagDataLinks(connection, idLink, "FALSE");
+                                        System.out.println("CRAWL FAILED");
+                                        //Ghi thông báo lỗi vào bảng log
+                                        Connector.writeLog(connection,
+                                                "CRAWL",
+                                                "Get data from web",
+                                                idConfig,
+                                                "ERR",
+                                                "Error with link at id is" + idLink);
+                                        //Gửi mail thông báo lỗi
+                                        String subject = "Error: Issue Retrieving Data from Web";
+                                        String body = "Dear Admin,\n\n" +
+                                                "We encountered an error while trying to retrieve data from the web in one of our steps. The specific issue is as follows:\n\n" +
+                                                "Error Details: An error occurred with the link identified by ID " + idLink + ".\n\n" +
+                                                "Please review the link associated with ID " + idLink + " to identify and resolve the problem.\n" +
+                                                "If you need further assistance, feel free to contact our support team.\n\n" +
+                                                "Thank you,\nYour Application Team";
+                                        SendEmail.sendMail(email, subject, body);
+                                    }
                                 }
+                                //Cập nhật status CRAWLED bảng configuration
+                                Connector.updateStatusConfig(connection, idConfig, "CRAWLED");
+                                //Ghi log crawl thành công
+                                Connector.writeLog(connection,
+                                        "CRAWL",
+                                        "Get data from web",
+                                        idConfig,
+                                        "SUCCESS",
+                                        "");
                             }
-                            ;
-                            //Success
-                            Connector.updateStatusConfig(connection, idConfig, "CRAWLED");
-                            Connector.writeLog(connection,
-                                    "CRAWL",
-                                    "Get data from web",
-                                    idConfig,
-                                    "SUCCESS",
-                                    "");
                         }
+                    } else {
+                        // can't find the download path
+                        //Cập nhật Flag=FALSE trong bảng configuration
+                        Connector.updateFlagConfig(connection, idConfig, "FALSE");
+                        //Ghi thông báo lỗi vào bảng log
+                        Connector.writeLog(connection,
+                                "CRAWL",
+                                "Get data from web",
+                                idConfig,
+                                "ERR",
+                                "Download path does not exist or failed to access path");
+                        //Gửi mail thông báo lỗi
+                        String subject = "Error: Issue Retrieving Data from Web";
+                        String body = "Dear Admin,\n\n" +
+                                "We encountered an error while trying to retrieve data from the web in one of our steps. The issue is as follows:\n\n" +
+                                "Error Message: Download path does not exist or failed to access the path.\n\n" +
+                                "Please ensure that the specified download path exists in configuration table.\n" +
+                                "If you need further assistance, feel free to contact our support team.\n\n" +
+                                "Thank you,\nYour Application Team";
+                        SendEmail.sendMail(email, subject, body);
                     }
-                } else {
-                    // can't find the download path
-                    Connector.updateFlagConfig(connection, idConfig, "FALSE");
-                    Connector.writeLog(connection,
-                            "CRAWL",
-                            "Get data from web",
-                            idConfig,
-                            "ERR",
-                            "Download path does not exist or failed to access path");
-                    String subject = "Error: Issue Retrieving Data from Web";
-                    String body = "Dear Admin,\n\n" +
-                            "We encountered an error while trying to retrieve data from the web in one of our steps. The issue is as follows:\n\n" +
-                            "Error Message: Download path does not exist or failed to access the path.\n\n" +
-                            "Please ensure that the specified download path exists in configuration table.\n" +
-                            "If you need further assistance, feel free to contact our support team.\n\n" +
-                            "Thank you,\nYour Application Team";
-
-                    SendEmail.sendMail(email, subject, body);
-
                 }
+            } catch (Exception e) {
+                //Ghi log lỗi không kết nối được internet và kết thúc chương trình.
+                Connector.writeLog(connection,
+                        "Run apllication",
+                        "Run apllication",
+                        null,
+                        "WARNING",
+                        "Cannot connect Internet");
+                System.exit(1);
             }
-
+            //Đóng kết nối db
             connection.close();
 
-        } catch (SQLException ignore) {
-        } catch (Exception e) {
-            throw new RuntimeException(e);
+        } catch (Exception ignore) {
         }
     }
 
@@ -129,16 +178,11 @@ public class Crawler {
                 throw new RuntimeException(e);
             }
         }
-
-
         try {
-            Writer writer = null;
-            writer = new OutputStreamWriter(new FileOutputStream(file_path, true), StandardCharsets.UTF_8);
+            Writer writer = new OutputStreamWriter(new FileOutputStream(file_path, true), StandardCharsets.UTF_8);
             writer.write(content + "\n");
             writer.flush();
             writer.close();
-        } catch (FileNotFoundException e) {
-            throw new RuntimeException(e);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
